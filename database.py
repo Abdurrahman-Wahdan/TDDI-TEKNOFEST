@@ -7,6 +7,10 @@ import psycopg2
 import psycopg2.extras
 import logging
 from typing import Dict, Any, Optional, List
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -18,10 +22,10 @@ class DatabaseConnection:
     
     def __init__(
         self, 
-        host: str = "localhost",
-        port: int = 5432,
-        database: str = "tddi",                    # ✅ Updated
-        username: str = "abdelrahmanwahdan",       # ✅ Updated
+        host: str = os.getenv("LOCAL_DB_HOST", "localhost"),  
+        port: int = os.getenv("LOCAL_DB_PORT", 5432),  
+        database: str = os.getenv("LOCAL_DB_NAME","tddi"),                  
+        username: str = os.getenv("LOCAL_DB_USERNAME","tddi"),     
         password: str = ""                         # ✅ Empty (no password needed)
     ):
         """
