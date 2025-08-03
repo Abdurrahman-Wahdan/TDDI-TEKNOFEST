@@ -581,39 +581,434 @@ Ne yapmak istiyorsunuz? 'Faturalarımı göster' veya 'İtiraz yapmak istiyorum'
             }
     
     def _handle_registration_operation(self, user_input: str, context: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle new customer registration"""
+        """Handle complete new customer registration flow"""
         try:
-            # This would typically collect customer info step by step
-            # For now, just provide information about registration
+            operation_step = context.get("operation_step")
+            registration_data = context.get("registration_data", {})
+            
+            if operation_step == "collecting_tc":
+                return self._handle_tc_collection(user_input, registration_data, context)
+            elif operation_step == "collecting_name":
+                return self._handle_name_collection(user_input, registration_data, context)
+            elif operation_step == "collecting_phone":
+                return self._handle_phone_collection(user_input, registration_data, context)
+            elif operation_step == "collecting_email":
+                return self._handle_email_collection(user_input, registration_data, context)
+            elif operation_step == "collecting_city":
+                return self._handle_city_collection(user_input, registration_data, context)
+            elif operation_step == "selecting_plan":
+                return self._handle_registration_plan_selection(user_input, registration_data, context)
+            elif operation_step == "confirming_registration":
+                return self._handle_registration_confirmation(user_input, registration_data, context)
+            else:
+                # Start registration process
+                return {
+                    "status": "awaiting_input",
+                    "message": """👋 **Turkcell'e Hoş Geldiniz!**
+
+        Yeni müşteri kaydınızı tamamlayalım. 
+
+        Başlamak için TC kimlik numaranızı paylaşır mısınız? (11 hane)""",
+                    "state_updates": {
+                        "operation_step": "collecting_tc",
+                        "registration_data": {}
+                    }
+                }
+                
+        except Exception as e:
             return {
-                "status": "completed",
-                "message": """👋 **Turkcell'e Hoş Geldiniz!**
+                "status": "error",
+                "message": "Kayıt işlemi sırasında hata oluştu. Baştan başlayalım mı?",
+                "error": str(e),
+                "state_updates": {
+                    "operation_step": None,
+                    "registration_data": {}
+                }
+            }
 
-📞 **Yeni Müşteri Olmak İçin:**
-- 532'yi arayın
-- Yakın Turkcell mağazasına gidin  
-- Online başvuru: turkcell.com.tr
-
-📋 **Gerekli Belgeler:**
-- TC kimlik kartı
-- İkametgah belgesi
-- Banka hesap bilgileri (fatura ödemesi için)
-
-📱 **Popüler Paketlerimiz:**
-- Bireysel Paketler: 50GB'dan başlayan seçenekler
-- Aile Paketleri: Çoklu hat avantajları
-- Kurumsal Çözümler: İşletmeniz için özel paketler
-
-Hemen başvuru yapmak için 532'yi arayabilirsiniz!"""
+    def _handle_tc_collection(self, user_input: str, registration_data: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle TC kimlik collection and validation"""
+        try:
+            # Extract TC kimlik
+            tc_kimlik = self._extract_tc_kimlik(user_input)
+            
+            if not tc_kimlik:
+                return {
+                    "status": "awaiting_input",
+                    "message": "Geçerli bir TC kimlik numarası girmediniz. Lütfen 11 haneli TC kimlik numaranızı yazın (örn: 12345678901):",
+                    "state_updates": {
+                        "operation_step": "collecting_tc"
+                    }
+                }
+            
+            # Check if TC already exists
+            tc_check = mcp_client.check_tc_kimlik_exists(tc_kimlik)
+            
+            if not tc_check["success"]:
+                return {
+                    "status": "error",
+                    "message": "TC kimlik kontrolü yapılamadı. Lütfen tekrar deneyin.",
+                    "state_updates": {
+                        "operation_step": "collecting_tc"
+                    }
+                }
+            
+            if tc_check["exists"]:
+                return {
+                    "status": "error",
+                    "message": f"Bu TC kimlik ({tc_kimlik}) ile zaten kayıtlı bir müşteri var. Giriş yapmak ister misiniz?",
+                    "state_updates": {
+                        "operation_step": None,
+                        "registration_data": {}
+                    }
+                }
+            
+            # TC is valid and available
+            registration_data["tc_kimlik"] = tc_kimlik
+            
+            return {
+                "status": "awaiting_input",
+                "message": "✅ TC kimlik kaydedildi. \n\nŞimdi adınızı ve soyadınızı yazın (örn: Ahmet Yılmaz):",
+                "state_updates": {
+                    "operation_step": "collecting_name",
+                    "registration_data": registration_data
+                }
             }
             
         except Exception as e:
             return {
                 "status": "error",
-                "message": "Kayıt işlemi sırasında hata oluştu.",
+                "message": "TC kimlik işlemi sırasında hata oluştu. Tekrar dener misiniz?",
                 "error": str(e)
             }
 
+    def _handle_name_collection(self, user_input: str, registration_data: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle name collection"""
+        try:
+            # Parse name
+            name_parts = user_input.strip().split()
+            
+            if len(name_parts) < 2:
+                return {
+                    "status": "awaiting_input",
+                    "message": "Lütfen adınızı ve soyadınızı tam olarak yazın (örn: Ahmet Yılmaz):",
+                    "state_updates": {
+                        "operation_step": "collecting_name"
+                    }
+                }
+            
+            first_name = name_parts[0].title()
+            last_name = " ".join(name_parts[1:]).title()
+            
+            # Validate name (basic)
+            if len(first_name) < 2 or len(last_name) < 2:
+                return {
+                    "status": "awaiting_input",
+                    "message": "Ad ve soyad en az 2 karakter olmalı. Lütfen tekrar yazın:",
+                    "state_updates": {
+                        "operation_step": "collecting_name"
+                    }
+                }
+            
+            registration_data["first_name"] = first_name
+            registration_data["last_name"] = last_name
+            
+            return {
+                "status": "awaiting_input",
+                "message": f"✅ {first_name} {last_name} kaydedildi.\n\nTelefon numaranızı yazın (örn: 05551234567):",
+                "state_updates": {
+                    "operation_step": "collecting_phone",
+                    "registration_data": registration_data
+                }
+            }
+            
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": "İsim kaydı sırasında hata oluştu. Tekrar dener misiniz?",
+                "error": str(e)
+            }
+
+    def _handle_phone_collection(self, user_input: str, registration_data: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle phone number collection"""
+        try:
+            import re
+            
+            # Extract phone number
+            phone_clean = re.sub(r'\D', '', user_input)
+            
+            # Validate Turkish phone format
+            if len(phone_clean) == 11 and phone_clean.startswith('0'):
+                phone_number = phone_clean
+            elif len(phone_clean) == 10 and phone_clean.startswith('5'):
+                phone_number = '0' + phone_clean
+            else:
+                return {
+                    "status": "awaiting_input",
+                    "message": "Geçerli bir telefon numarası yazın (örn: 05551234567 veya 5551234567):",
+                    "state_updates": {
+                        "operation_step": "collecting_phone"
+                    }
+                }
+            
+            # Format phone
+            formatted_phone = f"+90{phone_number[1:]}"
+            registration_data["phone_number"] = formatted_phone
+            
+            return {
+                "status": "awaiting_input",
+                "message": f"✅ {formatted_phone} kaydedildi.\n\nE-posta adresinizi yazın (örn: ahmet@email.com):",
+                "state_updates": {
+                    "operation_step": "collecting_email",
+                    "registration_data": registration_data
+                }
+            }
+            
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": "Telefon numarası kaydı sırasında hata oluştu. Tekrar dener misiniz?",
+                "error": str(e)
+            }
+
+    def _handle_email_collection(self, user_input: str, registration_data: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle email collection"""
+        try:
+            import re
+            
+            email = user_input.strip().lower()
+            
+            # Basic email validation
+            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            
+            if not re.match(email_pattern, email):
+                return {
+                    "status": "awaiting_input",
+                    "message": "Geçerli bir e-posta adresi yazın (örn: ahmet@gmail.com):",
+                    "state_updates": {
+                        "operation_step": "collecting_email"
+                    }
+                }
+            
+            registration_data["email"] = email
+            
+            return {
+                "status": "awaiting_input",
+                "message": f"✅ {email} kaydedildi.\n\nHangi şehirde yaşıyorsunuz? (örn: İstanbul, Ankara, İzmir):",
+                "state_updates": {
+                    "operation_step": "collecting_city",
+                    "registration_data": registration_data
+                }
+            }
+            
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": "E-posta kaydı sırasında hata oluştu. Tekrar dener misiniz?",
+                "error": str(e)
+            }
+
+    def _handle_city_collection(self, user_input: str, registration_data: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle city collection"""
+        try:
+            city = user_input.strip().title()
+            
+            if len(city) < 2:
+                return {
+                    "status": "awaiting_input",
+                    "message": "Lütfen geçerli bir şehir adı yazın:",
+                    "state_updates": {
+                        "operation_step": "collecting_city"
+                    }
+                }
+            
+            registration_data["city"] = city
+            registration_data["district"] = ""  # Optional field
+            
+            # Get available plans for selection
+            available_plans = mcp_client.get_available_plans()
+            
+            if not available_plans["success"] or not available_plans["plans"]:
+                return {
+                    "status": "error",
+                    "message": "Paket bilgileri alınamadı. Müşteri hizmetlerini arayın: 532"
+                }
+            
+            # Show top 5 plans
+            plan_options = []
+            for i, plan in enumerate(available_plans["plans"][:5], 1):
+                plan_options.append(f"{i}. {plan['plan_name']} - {plan['monthly_fee']}₺/ay - {plan['quota_gb']}GB")
+            
+            plan_text = "\n".join(plan_options)
+            
+            return {
+                "status": "awaiting_input",
+                "message": f"""✅ {city} kaydedildi.
+
+        📱 **Başlangıç paketi seçin:**
+        {plan_text}
+
+        Hangi paketi seçmek istiyorsunuz? (1, 2, 3, 4 veya 5)""",
+                "state_updates": {
+                    "operation_step": "selecting_plan",
+                    "registration_data": registration_data,
+                    "available_plans": available_plans["plans"][:5]
+                }
+            }
+            
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": "Şehir kaydı sırasında hata oluştu. Tekrar dener misiniz?",
+                "error": str(e)
+            }
+
+    def _handle_registration_plan_selection(self, user_input: str, registration_data: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle plan selection for registration"""
+        try:
+            available_plans = context.get("available_plans", [])
+            
+            # Parse plan choice
+            plan_number = None
+            for i in range(1, 6):
+                if str(i) in user_input:
+                    plan_number = i
+                    break
+            
+            if not plan_number or plan_number > len(available_plans):
+                return {
+                    "status": "awaiting_input",
+                    "message": "Lütfen geçerli bir paket numarası seçin (1, 2, 3, 4 veya 5):",
+                    "state_updates": {
+                        "operation_step": "selecting_plan"
+                    }
+                }
+            
+            chosen_plan = available_plans[plan_number - 1]
+            registration_data["initial_plan_id"] = chosen_plan["plan_id"]
+            
+            # Show registration summary for confirmation
+            summary = f"""📋 **Kayıt Özeti:**
+
+        👤 **Ad Soyad:** {registration_data['first_name']} {registration_data['last_name']}
+        🆔 **TC:** {registration_data['tc_kimlik']}
+        📞 **Telefon:** {registration_data['phone_number']}
+        📧 **E-posta:** {registration_data['email']}
+        🏙️ **Şehir:** {registration_data['city']}
+        📱 **Paket:** {chosen_plan['plan_name']} - {chosen_plan['monthly_fee']}₺/ay
+
+        Bu bilgiler doğru mu? Kayıt işlemini tamamlamak için 'EVET' yazın."""
+            
+            return {
+                "status": "awaiting_input",
+                "message": summary,
+                "state_updates": {
+                    "operation_step": "confirming_registration",
+                    "registration_data": registration_data
+                }
+            }
+            
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": "Paket seçimi sırasında hata oluştu. Tekrar dener misiniz?",
+                "error": str(e)
+            }
+
+    def _handle_registration_confirmation(self, user_input: str, registration_data: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle final registration confirmation"""
+        try:
+            user_response = user_input.strip().upper()
+            
+            if user_response not in ["EVET", "YES", "TAMAM", "ONAY"]:
+                return {
+                    "status": "awaiting_input",
+                    "message": "Kayıt işlemini tamamlamak için 'EVET' yazın veya baştan başlamak için 'HAYIR' yazın:",
+                    "state_updates": {
+                        "operation_step": "confirming_registration"
+                    }
+                }
+            
+            # Execute registration via MCP
+            registration_result = mcp_client.register_new_customer(
+                tc_kimlik_no=registration_data["tc_kimlik"],
+                first_name=registration_data["first_name"],
+                last_name=registration_data["last_name"],
+                phone_number=registration_data["phone_number"],
+                email=registration_data["email"],
+                city=registration_data["city"],
+                district=registration_data.get("district", ""),
+                initial_plan_id=registration_data.get("initial_plan_id")
+            )
+            
+            if registration_result["success"]:
+                customer_data = registration_result["customer_data"]
+                
+                success_message = f"""🎉 **Kayıt Başarılı! Turkcell'e Hoş Geldiniz!**
+
+        ✅ **Müşteri Numaranız:** {registration_result['customer_id']}
+        👤 **Ad Soyad:** {customer_data['first_name']} {customer_data['last_name']}
+        📞 **Telefon:** {customer_data['phone_number']}
+
+        📱 **Paketiniz aktif edildi!**"""
+                
+                if registration_result.get("initial_plan"):
+                    plan = registration_result["initial_plan"]
+                    success_message += f"""
+        📦 **Başlangıç Paketi:** {plan['plan_name']}
+        💰 **Aylık Ücret:** {plan['monthly_fee']}₺
+        📊 **Kota:** {plan['quota_gb']}GB"""
+                
+                success_message += f"""
+
+        📞 **Müşteri Hizmetleri:** 532
+        🌐 **Online İşlemler:** turkcell.com.tr
+
+        Artık tüm Turkcell hizmetlerinden yararlanabilirsiniz!"""
+                
+                return {
+                    "status": "completed",
+                    "message": success_message,
+                    "state_updates": {
+                        "operation_step": None,
+                        "registration_data": {},
+                        "is_authenticated": True,
+                        "customer_id": registration_result['customer_id'],
+                        "customer_data": customer_data
+                    }
+                }
+            else:
+                return {
+                    "status": "error",
+                    "message": f"Kayıt işlemi tamamlanamadı: {registration_result.get('message', 'Bilinmeyen hata')}. Müşteri hizmetlerini arayın: 532",
+                    "state_updates": {
+                        "operation_step": None,
+                        "registration_data": {}
+                    }
+                }
+                
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": "Kayıt tamamlama sırasında hata oluştu. Müşteri hizmetlerini arayın: 532",
+                "error": str(e),
+                "state_updates": {
+                    "operation_step": None,
+                    "registration_data": {}
+                }
+            }
+
+    def _extract_tc_kimlik(self, user_input: str) -> Optional[str]:
+        """Extract 11-digit Turkish ID from user input"""
+        import re
+        digits_only = re.sub(r'\D', '', user_input)
+        
+        if len(digits_only) >= 11:
+            for i in range(len(digits_only) - 10):
+                candidate = digits_only[i:i+11]
+                if candidate[0] != '0':  # TC kimlik can't start with 0
+                    return candidate
+        return None
 # Global instance
 operation_agent = OperationAgent()
 
