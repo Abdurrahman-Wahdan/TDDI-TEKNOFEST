@@ -1,0 +1,20 @@
+turkcell_service/
+├── workflow.py                 # 🆕 Main LangGraph workflow (replaces 7 agent files!)
+├── state.py                    # 🆕 Centralized state definition  
+├── nodes/                      # 🆕 Simple functions (was complex agent classes)
+│   ├── security.py            #     30 lines (was 200+ in prompt_injection_agent.py)
+│   ├── auth.py                #     40 lines (was 300+ in auth_agent.py)  
+│   ├── classify.py            #     20 lines (was 150+ in each classifier)
+│   ├── operations.py          #     100 lines (was 500+ in operations_agent.py)
+│   └── faq.py                 #     30 lines (was 150+ in sss_agent.py)
+├── mcp/                       # ✅ Keep as-is (well-organized)
+│   ├── mcp_client.py
+│   └── services/              # ✅ All service files stay
+├── embeddings/                # ✅ Keep as-is  
+│   ├── embedding_system.py
+│   ├── vector_store.py
+│   └── faq_data.csv
+├── database.py                # ✅ Keep as-is
+├── utils.py                   # 🆕 Simple GEMMA helper (replaces gemma_provider.py)
+└── setup/                     # 🆕 Setup scripts
+    └── create_tables.py
