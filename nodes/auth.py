@@ -9,6 +9,7 @@ import re
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.chat_history import get_context_for_llm, get_recent_chat_history
 
 logger = logging.getLogger(__name__)
 
@@ -50,15 +51,18 @@ async def authenticate_user(state) -> dict:
             "final_response": "Size genel hizmetler konusunda yardımcı olabilirim."
         }
     
+
+    all_history = state.get("chat_history", [])
+    print(f"All history: {all_history}")
     # Get LLM analysis
     system_message = """
 Sen TC kimlik kontrol uzmanısın. Kullanıcı girdisini analiz et.
 
 SADECE ŞU FORMATTA YANIT VER:
-{"status": "FOUND" veya "NOT_FOUND", "tc": "12345678901" veya null}
+{"tc": "12345678901" veya null}
 
-FOUND: 11 haneli geçerli TC kimlik buldum
-NOT_FOUND: TC kimlik yok, geçersiz veya kullanıcı vermek istemiyor
+tc: 11 haneli geçerli TC kimlik buldum
+null: TC kimlik yok, geçersiz veya kullanıcı vermek istemiyor
     """
     
     try:
@@ -69,10 +73,9 @@ NOT_FOUND: TC kimlik yok, geçersiz veya kullanıcı vermek istemiyor
         )
         
         data = extract_json_from_response(response)
-        status = data.get("status", "NOT_FOUND")
         tc = data.get("tc")
         
-        if status == "FOUND" and tc:
+        if tc and tc != "null":
             # Authenticate with MCP
             auth_result = mcp_client.authenticate_customer(tc)
             
@@ -102,7 +105,36 @@ NOT_FOUND: TC kimlik yok, geçersiz veya kullanıcı vermek istemiyor
                     "current_step": "classify",
                     "final_response": "TC kimlik bulunamadı. Yeni müşteri olmak ister misiniz?"
                 }
+            
         else:
+            system_message = """
+            Context:{all_history}
+Sen Turkcell Müşteri Assistansın, Müşteri bir işlem yapmak istiyorsa TC Kimlik numarası iste başka konularda müşer,yle nomal iletişim kur ama 
+ senin yapabiliceğin işler yine dışında olmasın.
+ MÜŞTERI HİZMETLERİ (5 kategori):
+
+1. ABONELIK: Paket değişikliği, tarife değişimi, yeni paket alma
+   Örnekler: "paket değiştirmek istiyorum", "tarifemi yükseltebilir miyim", "daha ucuz paket var mı"
+
+2. TEKNIK: Teknik destek, internet sorunları, modem problemleri, randevu alma
+   Örnekler: "internetim yavaş", "modem çalışmıyor", "teknik destek istiyorum", "teknisyen randevusu"
+
+3. BILGI: Mevcut abonelik/fatura görme, kullanım sorgulama, hesap bilgileri
+   Örnekler: "faturamı görmek istiyorum", "ne kadar kullandım", "paket bilgilerim", "hesap durumum"
+
+4. FATURA: Fatura ödeme, fatura itirazı, ödeme sorunları  
+   Örnekler: "fatura ödemek istiyorum", "faturama itiraz", "ödeme yapamıyorum", "borç var mı"
+
+5. SSS: Genel sorular, nasıl yapılır, bilgi alma
+   Örnekler: "nasıl ödeme yaparım", "hangi paketler var", "müşteri hizmetleri telefonu"
+
+"""
+
+            response = await call_gemma(
+            prompt=f"Müşteri talabi: {user_input}",
+            system_message=system_message,
+            temperature=0.1
+        )
             # No TC found - ask for it
             return {
                 **state,
@@ -110,9 +142,10 @@ NOT_FOUND: TC kimlik yok, geçersiz veya kullanıcı vermek istemiyor
                 "next_step": "auth",
                 "original_request": original_request,
                 "conversation_context": f"{conversation_context}\nTC talep: istendi",
-                "final_response": "TC kimlik numaranızı paylaşabilir misiniz?",
+                "final_response": response,
                 "waiting_for_input": True
             }
+
             
     except Exception as e:
         logger.error(f"Auth error: {e}")
