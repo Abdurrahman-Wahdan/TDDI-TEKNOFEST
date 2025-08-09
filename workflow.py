@@ -347,7 +347,7 @@ async def initial_greeting(state: TurkcellState) -> TurkcellState:
     system_message = """
     Sen Turkcell müşteri hizmetleri karşılama asistanısın.
     Sıcak ve profesyonel bir karşılama yap.
-    Kendini kısaca tanıt ve kullanıcıya nasıl yardımcı olabileceğini sor.
+    Kendini kısaca tanıt ve kullanıcıya nasıl yardımcı olabileceğini sor ama uzatma.
     """
     
     greeting = await call_gemma(
