@@ -17,7 +17,7 @@ import os
 import sys
 from typing import TypedDict, Literal, Optional, List, Dict, Any, Union
 from datetime import datetime
-from langgraph.graph import StateGraph, END
+from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph.message import add_messages
 
@@ -354,6 +354,10 @@ async def initial_greeting(state: TurkcellState) -> TurkcellState:
         system_message=system_message,
         temperature=0.4
     )
+
+    print(greeting)
+    loop = asyncio.get_event_loop()
+    user_input = await loop.run_in_executor(None, input)  # input() bloklayıcı, bunu async’e çevirdik
     
     return {
         **state,
@@ -361,21 +365,7 @@ async def initial_greeting(state: TurkcellState) -> TurkcellState:
         "conversation_stage": "greeting",
         "conversation_context": "Karşılama yapıldı",
         "final_response": greeting,
-        "user_input": None  # İlk adımda kullanıcı girişi yok
-    }
-
-async def get_user_input(final_response):
-    print(final_response + "\n")
-    loop = asyncio.get_event_loop()
-    user_input = await loop.run_in_executor(None, input)  # input() bloklayıcı, bunu async’e çevirdik
-    return user_input
-
-async def wait_for_input(state: TurkcellState) -> TurkcellState:
-    user_input = await get_user_input(state["final_response"])
-    return {
-        **state,
-        "user_input": user_input,
-        "waiting_for_input": False
+        "user_input": user_input + "\n"  # İlk adımda kullanıcı girişi yok
     }
 
 # ======================== ENHANCED OPERATION WRAPPER ========================
@@ -560,7 +550,6 @@ def create_turkcell_workflow() -> StateGraph:
     workflow.add_node("classify", classify_request)
     workflow.add_node("validate", validation_node)
     workflow.add_node("operate", enhanced_operation_node)
-    workflow.add_node("wait_for_input", wait_for_input)  # Add wait node
     
     # SMS integration nodes
     workflow.add_node("sms_decision", sms_decision_node)
@@ -576,8 +565,7 @@ def create_turkcell_workflow() -> StateGraph:
     workflow.set_entry_point("initial_greeting")
 
     # Define edges
-    workflow.add_edge("initial_greeting", "wait_for_input")
-    workflow.add_edge("wait_for_input", "security")
+    workflow.add_edge("initial_greeting", "security")
 
 
     
@@ -599,11 +587,8 @@ def create_turkcell_workflow() -> StateGraph:
         {
             "classify": "classify",
             "auth": "auth",
-            "wait_for_input": "wait_for_input"  # New edge
         }
     )
-
-    workflow.add_edge("wait_for_input", END)
     
     # Classify → Validate (operation identified) or continue Classify
     workflow.add_conditional_edges(
@@ -613,7 +598,6 @@ def create_turkcell_workflow() -> StateGraph:
             "validate": "validate",
             "operate": "operate", 
             "classify": "classify",
-            "wait_for_input": "wait_for_input"  # Add this edge
         }
     )
     # Validate → Operate (confirmed) or Classify (cancelled) or continue Validate

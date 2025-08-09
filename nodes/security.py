@@ -9,6 +9,7 @@ import re
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from langgraph.graph import START, END
 
 logger = logging.getLogger(__name__)
 
@@ -79,9 +80,9 @@ DANGER ise nazik ret mesajı ver.
             logger.warning(f"Security BLOCKED for input: '{user_input[:30]}...'")
             return {
                 **state,
-                "current_step": "end",
+                "current_step": "security_check",
                 "conversation_context": f"Güvenlik: Engellendi",
-                "final_response": message or "Üzgünüm, size bu konuda yardımcı olamam."
+                "final_response": "Üzgünüm, size bu konuda yardımcı olamam. Farklı bir konu hakkında destek almak ister misiniz?",
             }
             
     except Exception as e:

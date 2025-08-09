@@ -11,39 +11,35 @@ graph TD;
 	classify(classify)
 	validate(validate)
 	operate(operate)
-	wait_for_input(wait_for_input)
 	sms_decision(sms_decision)
 	sms_offer(sms_offer)
 	sms_send(sms_send)
 	continue(continue)
 	__end__([<p>__end__</p>]):::last
 	__start__ --> initial_greeting;
-	initial_greeting --> wait_for_input;
-	wait_for_input --> security;
+	auth -.-> classify;
+	classify -.-> operate;
+	classify -.-> validate;
+	continue -. &nbsp;end&nbsp; .-> __end__;
+	continue -.-> security;
+	initial_greeting --> security;
+	operate -.-> continue;
+	operate -.-> sms_decision;
+	security -. &nbsp;end&nbsp; .-> __end__;
 	security -.-> auth;
 	security -.-> classify;
-	security -. &nbsp;end&nbsp; .-> __end__;
-	auth -.-> classify;
-	auth -.-> wait_for_input;
-	classify -.-> validate;
-	classify -.-> operate;
-	classify -.-> wait_for_input;
-	validate -.-> operate;
-	validate -.-> classify;
-	operate -.-> sms_decision;
-	operate -.-> continue;
-	sms_decision -.-> sms_offer;
 	sms_decision -.-> continue;
-	sms_offer -.-> sms_send;
+	sms_decision -.-> sms_offer;
 	sms_offer -.-> continue;
+	sms_offer -.-> sms_send;
 	sms_send -.-> continue;
-	continue -.-> security;
-	continue -. &nbsp;end&nbsp; .-> __end__;
+	validate -.-> classify;
+	validate -.-> operate;
 	auth -.-> auth;
 	classify -.-> classify;
-	validate -.-> validate;
-	sms_offer -.-> sms_offer;
 	continue -.-> continue;
+	sms_offer -.-> sms_offer;
+	validate -.-> validate;
 	classDef default fill:#f2f0ff,line-height:1.2
 	classDef first fill-opacity:0
 	classDef last fill:#bfb6fc
