@@ -10,6 +10,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from langgraph.graph import START, END
+from utils.chat_history import get_context_for_llm, get_recent_chat_history
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,8 @@ async def security_check(state) -> dict:
     user_input = state["user_input"]
     conversation_context = state.get("conversation_context", "")
     
+    last_user_context = get_recent_chat_history(state, last_n=1)
+
     system_message = """
 Sen Turkcell güvenlik analiz uzmanısın. Kullanıcı girdisini analiz et.
 
@@ -60,7 +63,7 @@ DANGER ise nazik ret mesajı ver.
     
     try:
         response = await call_gemma(
-            prompt=f"Analiz et: {user_input}",
+            prompt=f"{last_user_context}",
             system_message=system_message,
             temperature=0.1
         )
