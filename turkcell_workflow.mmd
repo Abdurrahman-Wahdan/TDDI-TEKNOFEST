@@ -6,7 +6,6 @@ config:
 graph TD;
 	__start__([<p>__start__</p>]):::first
 	initial_greeting(initial_greeting)
-	waiting_for_problem(waiting_for_problem)
 	security(security)
 	auth(auth)
 	classify(classify)
@@ -19,9 +18,8 @@ graph TD;
 	continue(continue)
 	__end__([<p>__end__</p>]):::last
 	__start__ --> initial_greeting;
-	initial_greeting --> waiting_for_problem;
-	wait_for_input --> __end__;
-	waiting_for_problem --> security;
+	initial_greeting --> wait_for_input;
+	wait_for_input --> security;
 	security -.-> auth;
 	security -.-> classify;
 	security -. &nbsp;end&nbsp; .-> __end__;

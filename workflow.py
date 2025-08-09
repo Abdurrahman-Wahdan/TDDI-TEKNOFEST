@@ -341,7 +341,6 @@ BELİRSİZSE: "BELİRSİZ: [netleştirme sorusu]"
 # In workflow.py - Add a new function for initial greeting
 
 async def initial_greeting(state: TurkcellState) -> TurkcellState:
-    """System sends the first message without waiting for user input."""
     from utils.gemma_provider import call_gemma
     
     system_message = """
@@ -358,37 +357,25 @@ async def initial_greeting(state: TurkcellState) -> TurkcellState:
     
     return {
         **state,
-        "current_step": "waiting_for_problem",  # New state to wait for user's problem
+        "current_step": "waiting_for_problem",  # Bekleme moduna geç
         "conversation_stage": "greeting",
         "conversation_context": "Karşılama yapıldı",
-        "final_response": greeting
+        "final_response": greeting,
+        "user_input": None  # İlk adımda kullanıcı girişi yok
     }
 
-async def wait_for_problem(state: TurkcellState) -> TurkcellState:
-    """Wait for and capture the user's problem."""
-    user_input = state["user_input"]
-    
-    # Simply pass the user's problem to security check
-    return {
-        **state,
-        "current_step": "security",
-        "conversation_stage": "problem_analysis",
-        "conversation_context": f"{state.get('conversation_context', '')}\nKullanıcı talebi: {user_input}"
-    }
+async def get_user_input(final_response):
+    print(final_response + "\n")
+    loop = asyncio.get_event_loop()
+    user_input = await loop.run_in_executor(None, input)  # input() bloklayıcı, bunu async’e çevirdik
+    return user_input
 
 async def wait_for_input(state: TurkcellState) -> TurkcellState:
-    """
-    Special node that halts execution and waits for user input.
-    This node is used to break the LangGraph execution flow.
-    """
-    print("DEBUG - Halting execution, waiting for user input")
-    print(f"DEBUG - Final response to show user: '{state.get('final_response', '')[:50]}...'")
-    
-    # No changes to state other than setting the waiting flag
+    user_input = await get_user_input(state["final_response"])
     return {
         **state,
-        "waiting_for_input": True,
-        # Keep the final_response as is
+        "user_input": user_input,
+        "waiting_for_input": False
     }
 
 # ======================== ENHANCED OPERATION WRAPPER ========================
@@ -568,7 +555,6 @@ def create_turkcell_workflow() -> StateGraph:
     
     # Core workflow nodes
     workflow.add_node("initial_greeting", initial_greeting)
-    workflow.add_node("waiting_for_problem", wait_for_problem)
     workflow.add_node("security", security_check)
     workflow.add_node("auth", authenticate_user)
     workflow.add_node("classify", classify_request)
@@ -590,8 +576,10 @@ def create_turkcell_workflow() -> StateGraph:
     workflow.set_entry_point("initial_greeting")
 
     # Define edges
-    workflow.add_edge("initial_greeting", "waiting_for_problem")
-    workflow.add_edge("waiting_for_problem", "security")
+    workflow.add_edge("initial_greeting", "wait_for_input")
+    workflow.add_edge("wait_for_input", "security")
+
+
     
     # Security → Auth (skip if already authenticated) or End
     workflow.add_conditional_edges(
@@ -785,7 +773,7 @@ class TurkcellCustomerService:
                     customer_id=None,
                     customer_data=None,
                     is_customer=False,
-                    current_step="security",  # Start with security check
+                    current_step="initial_greeting",  # Start with security check
                     current_operation=None,
                     operation_history=[],
                     awaiting_validation=False,

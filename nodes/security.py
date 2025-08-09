@@ -73,7 +73,7 @@ DANGER ise nazik ret mesajı ver.
             return {
                 **state,
                 "current_step": "auth",
-                "conversation_context": f"Güvenlik: Geçti"
+                "conversation_context": f"Güvenlik: Geçti",
             }
         else:
             logger.warning(f"Security BLOCKED for input: '{user_input[:30]}...'")

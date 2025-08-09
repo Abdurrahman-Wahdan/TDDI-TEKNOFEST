@@ -55,10 +55,10 @@ async def authenticate_user(state) -> dict:
 Sen TC kimlik kontrol uzmanısın. Kullanıcı girdisini analiz et.
 
 SADECE ŞU FORMATTA YANIT VER:
-{"status": "FOUND" veya "NOT_FOUND", "tc": "12345678901" veya null}
+{"tc": "12345678901" veya null}
 
-FOUND: 11 haneli geçerli TC kimlik buldum
-NOT_FOUND: TC kimlik yok, geçersiz veya kullanıcı vermek istemiyor
+tc: 11 haneli geçerli TC kimlik buldum
+null: TC kimlik yok, geçersiz veya kullanıcı vermek istemiyor
     """
     
     try:
@@ -69,10 +69,9 @@ NOT_FOUND: TC kimlik yok, geçersiz veya kullanıcı vermek istemiyor
         )
         
         data = extract_json_from_response(response)
-        status = data.get("status", "NOT_FOUND")
         tc = data.get("tc")
         
-        if status == "FOUND" and tc:
+        if tc != "null":
             # Authenticate with MCP
             auth_result = mcp_client.authenticate_customer(tc)
             
@@ -102,6 +101,7 @@ NOT_FOUND: TC kimlik yok, geçersiz veya kullanıcı vermek istemiyor
                     "current_step": "classify",
                     "final_response": "TC kimlik bulunamadı. Yeni müşteri olmak ister misiniz?"
                 }
+            
         else:
             # No TC found - ask for it
             return {
@@ -113,6 +113,7 @@ NOT_FOUND: TC kimlik yok, geçersiz veya kullanıcı vermek istemiyor
                 "final_response": "TC kimlik numaranızı paylaşabilir misiniz?",
                 "waiting_for_input": True
             }
+
             
     except Exception as e:
         logger.error(f"Auth error: {e}")
