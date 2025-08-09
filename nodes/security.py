@@ -80,7 +80,7 @@ DANGER ise nazik ret mesajı ver.
             logger.warning(f"Security BLOCKED for input: '{user_input[:30]}...'")
             return {
                 **state,
-                "current_step": "security_check",
+                "current_step": "security",
                 "conversation_context": f"Güvenlik: Engellendi",
                 "final_response": "Üzgünüm, size bu konuda yardımcı olamam. Farklı bir konu hakkında destek almak ister misiniz?",
             }

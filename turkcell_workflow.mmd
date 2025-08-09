@@ -4,8 +4,7 @@ config:
     curve: linear
 ---
 graph TD;
-	__start__([<p>__start__</p>]):::first
-	initial_greeting(initial_greeting)
+	__start__(<p>__start__</p>)
 	security(security)
 	auth(auth)
 	classify(classify)
@@ -15,31 +14,34 @@ graph TD;
 	sms_offer(sms_offer)
 	sms_send(sms_send)
 	continue(continue)
-	__end__([<p>__end__</p>]):::last
-	__start__ --> initial_greeting;
-	auth -.-> classify;
-	classify -.-> operate;
-	classify -.-> validate;
-	continue -. &nbsp;end&nbsp; .-> __end__;
-	continue -.-> security;
-	initial_greeting --> security;
-	operate -.-> continue;
-	operate -.-> sms_decision;
-	security -. &nbsp;end&nbsp; .-> __end__;
+	wait_for_input(wait_for_input)
+	end(end)
+	__end__(<p>__end__</p>)
+	__start__ --> security;
 	security -.-> auth;
 	security -.-> classify;
-	sms_decision -.-> continue;
-	sms_decision -.-> sms_offer;
-	sms_offer -.-> continue;
-	sms_offer -.-> sms_send;
-	sms_send -.-> continue;
-	validate -.-> classify;
+	security -. &nbsp;end&nbsp; .-> end;
+	auth -.-> classify;
+	auth -.-> wait_for_input;
+	classify -.-> validate;
+	classify -.-> wait_for_input;
+	classify -.-> continue;
 	validate -.-> operate;
-	auth -.-> auth;
-	classify -.-> classify;
-	continue -.-> continue;
-	sms_offer -.-> sms_offer;
-	validate -.-> validate;
+	validate -.-> wait_for_input;
+	operate -.-> continue;
+	operate -.-> sms_decision;
+	sms_decision -.-> sms_offer;
+	sms_decision -.-> continue;
+	sms_offer -.-> wait_for_input;
+	sms_send -.-> continue;
+	continue -.-> wait_for_input;
+	continue -. &nbsp;end&nbsp; .-> __end__;
+	wait_for_input -.-> security;
+	wait_for_input -.-> auth;
+	wait_for_input -.-> classify;
+	wait_for_input -.-> operate;
+	wait_for_input -.-> sms_send;
+	operate -.-> operate;
 	classDef default fill:#f2f0ff,line-height:1.2
 	classDef first fill-opacity:0
 	classDef last fill:#bfb6fc

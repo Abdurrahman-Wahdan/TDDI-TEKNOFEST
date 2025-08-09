@@ -71,7 +71,7 @@ null: TC kimlik yok, geçersiz veya kullanıcı vermek istemiyor
         data = extract_json_from_response(response)
         tc = data.get("tc")
         
-        if tc != "null":
+        if tc and tc != "null":
             # Authenticate with MCP
             auth_result = mcp_client.authenticate_customer(tc)
             
