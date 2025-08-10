@@ -213,99 +213,6 @@ async def execute_with_smart_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         logger.error(f"Smart executor error: {e}")
         return await handle_execution_error(state, str(e))
 
-# ======================== CONVERSATION TYPE DETECTION ========================
-
-def detect_conversation_type(user_input: str) -> str:
-    """Detect the type of conversation to handle appropriately."""
-    
-    user_lower = user_input.lower().strip()
-    
-    # Greeting patterns
-    greeting_patterns = [
-        "merhaba", "selam", "hello", "hi", "hey",
-        "nasılsın", "nasıl gidiyor", "naber", 
-        "günaydın", "iyi günler", "hoş geldin"
-    ]
-    
-    # Vague request patterns  
-    vague_patterns = [
-        "yardım istiyorum", "yardım eder misin", "help",
-        "bir şey sormak istiyorum", "soru sormak istiyorum",
-        "bilgi istiyorum", "danışmak istiyorum"
-    ]
-    
-    # Check for exact greetings
-    if any(pattern in user_lower for pattern in greeting_patterns):
-        return "greeting"
-    
-    # Check for vague requests
-    if any(pattern in user_lower for pattern in vague_patterns):
-        return "vague_request"
-    
-    # Check if very short (might be greeting)
-    if len(user_input.strip()) <= 10 and any(char.isalpha() for char in user_input):
-        return "greeting"
-    
-    return "specific_request"
-
-async def handle_greeting(state: Dict[str, Any], customer_data: Dict, chat_history: List) -> Dict[str, Any]:
-    """Handle greeting messages naturally."""
-    
-    # Personalized greeting based on customer status
-    if customer_data and customer_data.get("first_name"):
-        customer_name = f"{customer_data['first_name']} {customer_data.get('last_name', '')}".strip()
-        greeting_response = f"Merhaba {customer_name}! Ben Adam, Turkcell asistanınızım. Size nasıl yardımcı olabilirim?"
-    else:
-        greeting_response = "Merhaba! Ben Adam, Turkcell asistanınızım. Size nasıl yardımcı olabilirim?"
-    
-    new_history = add_to_chat_history(
-        {"chat_history": chat_history},
-        role="asistan",
-        message=greeting_response,
-        current_state="execute_greeting"
-    )
-    
-    logger.info("Handled greeting message")
-    
-    return {
-        **state,
-        "current_step": "classify",  # Wait for next request
-        "final_response": greeting_response,
-        "chat_history": new_history["chat_history"],
-        "conversation_continues": True,
-        "waiting_for_input": True
-    }
-
-async def handle_vague_request(state: Dict[str, Any], chat_history: List) -> Dict[str, Any]:
-    """Handle vague requests by asking for clarification."""
-    
-    clarification_responses = [
-        "Tabii ki size yardımcı olabilirim! Hangi konuda destek almak istiyorsunuz?",
-        "Elbette! Size nasıl yardımcı olabilirim? Hangi hizmetimizle ilgili bilgi almak istiyorsunuz?",
-        "Memnuniyetle yardımcı olurum. Lütfen hangi konuda yardıma ihtiyacınız olduğunu belirtir misiniz?"
-    ]
-    
-    # Use first response for now (could randomize)
-    clarification_response = clarification_responses[0]
-    
-    new_history = add_to_chat_history(
-        {"chat_history": chat_history},
-        role="asistan", 
-        message=clarification_response,
-        current_state="execute_clarification"
-    )
-    
-    logger.info("Handled vague request with clarification")
-    
-    return {
-        **state,
-        "current_step": "classify",  # Wait for clearer request
-        "final_response": clarification_response,
-        "chat_history": new_history["chat_history"],
-        "conversation_continues": True,
-        "waiting_for_input": True
-    }
-
 # ======================== LLM-BASED TOOL EXECUTION ========================
 
 async def execute_with_llm_and_tools(
@@ -345,63 +252,42 @@ Son konuşma:
 
 Müşteri durumu: {"Doğrulanmış" if is_authenticated else "Doğrulanmamış"}
 
-ÖZEL DURUM ANALİZİ:
-1. Bu bir selamlama mı? (merhaba, selam, nasılsın) → Sıcak karşıla ve yardım teklif et
-2. Bu belirsiz bir talep mi? (yardım istiyorum) → Nazikçe detay iste  
-3. Bu spesifik bir işlem mi? → Hangi araçları kullanacağını planla
+Bu talebi nasıl ele alacağını adım adım düşün:
+1. Hangi araçları kullanman gerekiyor?
+2. Önce kimlik doğrulama gerekli mi?
+3. Kullanıcıdan onay alman gerekecek mi?
+4. SMS teklif etmen mantıklı mı?
 
-ARACI KULLANMA KURALLARI:
-- Müşteriye özel bilgi (fatura, paket) → Önce authenticate_customer
-- Genel bilgi (nasıl yapılır) → FAQ araçlarını kullan
-- Uzun cevaplar → SMS teklif et (should_offer_sms_for_content)
-- Önemli işlemler → Önce kullanıcı onayı al
-
-SONRA:
-Doğal bir yanıt ver. Gerekirse araçları kullanacağını belirt ama şimdilik sadece konuş.
+Sonra doğal bir yanıt ver ve gerekirse araçları kullan.
     """
     
     try:
-        # Detect conversation type first
-        conversation_type = detect_conversation_type(user_input)
-        
-        if conversation_type == "greeting":
-            return await handle_greeting(state, customer_data, new_history)
-        elif conversation_type == "vague_request":
-            return await handle_vague_request(state, new_history)
-        
-        # Get LLM reasoning and response for specific requests
+        # Get LLM reasoning and response
         llm_response = await call_gemma(
             prompt=reasoning_prompt,
-            system_message="Sen akıllı müşteri hizmetleri asistanısın. Doğal konuş ve araçları akıllıca kullan.",
+            system_message="Sen akıllı müşteri hizmetleri asistanısın. Mantıklı düşün ve araçları doğru kullan.",
             temperature=0.4
         )
         
-        # For demo purposes, let's add basic tool execution detection
-        should_use_tools = await should_execute_tools(llm_response, tools)
-        
-        if should_use_tools["execute"]:
-            # In a full implementation, this would parse LLM response and execute tools
-            # For now, just enhance the response
-            enhanced_response = f"{llm_response}\n\n[Sistem: Bu talep için {should_use_tools['suggested_tools']} araçları kullanılacak]"
-        else:
-            enhanced_response = llm_response
+        # For now, return the LLM response
+        # In a full implementation, we would parse the response and execute tools
         
         # Add response to chat history
         new_history = add_to_chat_history(
             state,
             role="asistan",
-            message=enhanced_response,
+            message=llm_response,
             current_state="execute"
         )
         
         # Check if conversation should continue
-        should_continue = await check_conversation_continuation(enhanced_response, user_input)
+        should_continue = await check_conversation_continuation(llm_response, user_input)
         
         if should_continue:
             return {
                 **state,
                 "current_step": "classify",  # Route back to classifier for new request
-                "final_response": enhanced_response,
+                "final_response": llm_response,
                 "chat_history": new_history,
                 "conversation_continues": True
             }
@@ -409,7 +295,7 @@ Doğal bir yanıt ver. Gerekirse araçları kullanacağını belirt ama şimdili
             return {
                 **state,
                 "current_step": "end",
-                "final_response": enhanced_response,
+                "final_response": llm_response,
                 "chat_history": new_history,
                 "conversation_continues": False
             }
@@ -417,40 +303,6 @@ Doğal bir yanıt ver. Gerekirse araçları kullanacağını belirt ama şimdili
     except Exception as e:
         logger.error(f"LLM tool execution failed: {e}")
         return await handle_execution_error(state, str(e))
-
-async def should_execute_tools(llm_response: str, tools: List) -> Dict[str, Any]:
-    """Determine if tools should be executed based on LLM response."""
-    
-    # Simple heuristics for tool execution detection
-    response_lower = llm_response.lower()
-    
-    # Tool execution indicators
-    execution_indicators = [
-        "araç kullan", "bilgi getir", "sorgula", "kontrol et",
-        "authenticate", "get_", "check_", "send_", "create_",
-        "tc kimlik", "fatura", "paket", "randevu"
-    ]
-    
-    # Authentication indicators
-    auth_indicators = ["tc kimlik", "kimlik doğrul", "authenticate"]
-    
-    # Check if should execute tools
-    should_execute = any(indicator in response_lower for indicator in execution_indicators)
-    
-    # Suggest which tools might be relevant
-    suggested_tools = []
-    if any(indicator in response_lower for indicator in auth_indicators):
-        suggested_tools.append("authenticate_customer")
-    if "fatura" in response_lower:
-        suggested_tools.extend(["get_customer_bills", "get_billing_summary"])
-    if "paket" in response_lower:
-        suggested_tools.extend(["get_customer_active_plans", "get_available_plans"])
-    
-    return {
-        "execute": should_execute,
-        "suggested_tools": suggested_tools,
-        "confidence": "medium"
-    }
 
 # ======================== TOOL EXECUTION HELPERS ========================
 
