@@ -54,7 +54,7 @@ async def authenticate_user(state) -> dict:
 
     all_history = state.get("chat_history", [])
     print(f"All history: {all_history}")
-    # Get LLM analysis
+
     system_message = """
 Sen TC kimlik kontrol uzmanısın. Kullanıcı girdisini analiz et.
 
@@ -107,11 +107,8 @@ null: TC kimlik yok, geçersiz veya kullanıcı vermek istemiyor
                 }
             
         else:
-            system_message = """
-            Context:{all_history}
-Sen Turkcell Müşteri Assistansın, Müşteri bir işlem yapmak istiyorsa TC Kimlik numarası iste başka konularda müşer,yle nomal iletişim kur ama 
- senin yapabiliceğin işler yine dışında olmasın.
- MÜŞTERI HİZMETLERİ (5 kategori):
+            system_message = f"""
+MÜŞTERI HİZMETLERİ (5 kategori):
 
 1. ABONELIK: Paket değişikliği, tarife değişimi, yeni paket alma
    Örnekler: "paket değiştirmek istiyorum", "tarifemi yükseltebilir miyim", "daha ucuz paket var mı"
@@ -128,7 +125,16 @@ Sen Turkcell Müşteri Assistansın, Müşteri bir işlem yapmak istiyorsa TC Ki
 5. SSS: Genel sorular, nasıl yapılır, bilgi alma
    Örnekler: "nasıl ödeme yaparım", "hangi paketler var", "müşteri hizmetleri telefonu"
 
-"""
+6. CLARIFY: Belirsiz talepler, daha fazla bilgi iste
+
+Turkcell müşteri hizmetleri personeli olarak müşteriyi selamladın ve o da sana aşağıdaki mesajı verdi:
+Müşteri: {state.get("user_input", "None")}
+
+Şimdi müşterinin hangi kategoriye en uygun olduğunu belirle ve ona göre yanıt ver.
+""" + """
+Format:
+{"category": "ABONELIK" veya "TEKNIK" veya "BILGI" veya "FATURA" veya "SSS" veya "CLARIFY",}
+    """
 
             response = await call_gemma(
             prompt=f"Müşteri talabi: {user_input}",
