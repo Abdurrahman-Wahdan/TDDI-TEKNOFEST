@@ -159,7 +159,6 @@ Bu bilgileri güzel şekilde sun ve kullanıcının talebine göre özelleştir.
             "error_count": state.get("error_count", 0) + 1
         }
 
-
 # ======================== FAQ OPERATIONS ========================
 
 async def faq_operations(state) -> Dict[str, Any]:
