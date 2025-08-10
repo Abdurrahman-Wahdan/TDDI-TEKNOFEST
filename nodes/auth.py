@@ -33,27 +33,48 @@ async def authenticate_user(state) -> dict:
     from mcp.mcp_client import mcp_client
     
     user_input = state["user_input"]
-    conversation_context = state.get("conversation_context", "")
+
+    system_message = f"""
+MÜŞTERI HİZMETLERİ (5 kategori):
+
+1. ABONELIK: Paket değişikliği, tarife değişimi, yeni paket alma
+   Örnekler: "paket değiştirmek istiyorum", "tarifemi yükseltebilir miyim", "daha ucuz paket var mı"
+
+2. TEKNIK: Teknik destek, internet sorunları, modem problemleri, randevu alma
+   Örnekler: "internetim yavaş", "modem çalışmıyor", "teknik destek istiyorum", "teknisyen randevusu"
+
+3. BILGI: Mevcut abonelik/fatura görme, kullanım sorgulama, hesap bilgileri
+   Örnekler: "faturamı görmek istiyorum", "ne kadar kullandım", "paket bilgilerim", "hesap durumum"
+
+4. FATURA: Fatura ödeme, fatura itirazı, ödeme sorunları  
+   Örnekler: "fatura ödemek istiyorum", "faturama itiraz", "ödeme yapamıyorum", "borç var mı"
+
+5. SSS: Genel sorular, nasıl yapılır, bilgi alma
+   Örnekler: "nasıl ödeme yaparım", "hangi paketler var", "müşteri hizmetleri telefonu"
+
+6. CLARIFY: Belirsiz talepler, daha fazla bilgi iste
+
+Turkcell müşteri hizmetleri personeli olarak müşteriyi selamladın ve o da sana aşağıdaki mesajı verdi:
+Müşteri: {state.get("user_input", "None")}
+
+Şimdi müşterinin hangi kategoriye en uygun olduğunu belirle ve ona göre yanıt ver.
+""" + """
+Format:
+{"category": "ABONELIK" veya "TEKNIK" veya "BILGI" veya "FATURA" veya "SSS" veya "CLARIFY",}
+    """
+    print(system_message)
+    response = await call_gemma(
+        prompt=f"",
+        system_message=system_message,
+        temperature=0.5
+    )
     
-    # Preserve original request if exists
-    original_request = state.get("original_request", "")
-    if not original_request and not re.match(r'^\d{11}$', user_input.strip()):
-        original_request = user_input
-    
-    # Check if too many attempts
-    attempts = conversation_context.count("TC talep:")
-    if attempts >= 2:
-        return {
-            **state,
-            "is_authenticated": False,
-            "is_customer": False,
-            "current_step": "classify",
-            "final_response": "Size genel hizmetler konusunda yardımcı olabilirim."
-        }
+    data = extract_json_from_response(response)
+
     
 
-    all_history = state.get("chat_history", [])
-    print(f"All history: {all_history}")
+    print(data)
+
     # Get LLM analysis
     system_message = """
 Sen TC kimlik kontrol uzmanısın. Kullanıcı girdisini analiz et.
