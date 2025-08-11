@@ -18,6 +18,308 @@ from mcp.mcp_client import mcp_client
 
 logger = logging.getLogger(__name__)
 
+
+# ======================== SMS SERVICE INTEGRATION ========================
+
+class SMSService:
+    """SMS service using Twilio for sending messages."""
+    
+    def __init__(self):
+        """Initialize SMS service with Twilio credentials."""
+        try:
+            from twilio.rest import Client
+            
+            # Get credentials from environment
+            self.account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+            self.auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+            self.from_number = os.getenv("TWILIO_FROM_NUMBER")
+            self.demo_number = os.getenv("TWILIO_TO_NUMBER")  # Fixed demo number
+            
+            # Initialize Twilio client
+            self.client = Client(self.account_sid, self.auth_token)
+            
+            logger.info("SMS service initialized successfully")
+            
+        except ImportError:
+            logger.error("Twilio library not installed")
+            self.client = None
+        except Exception as e:
+            logger.error(f"SMS service initialization failed: {e}")
+            self.client = None
+    
+    def send_sms(self, message_body: str) -> Dict[str, Any]:
+        """Send SMS to demo number."""
+        try:
+            if not self.client:
+                return {"success": False, "error": "SMS service not available"}
+            
+            message = self.client.messages.create(
+                body=message_body,
+                from_=self.from_number,
+                to=self.demo_number
+            )
+            
+            logger.info(f"SMS sent successfully: {message.sid}")
+            return {
+                "success": True,
+                "message_sid": message.sid,
+                "to_number": self.demo_number,
+                "content": message_body
+            }
+            
+        except Exception as e:
+            logger.error(f"SMS sending failed: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+# Global SMS service instance
+sms_service = SMSService()
+
+# ======================== SMS FORMATTING TOOLS ========================
+
+@tool
+async def format_content_for_sms(content: str, content_type: str = "general", include_contact: bool = True) -> Dict[str, Any]:
+    """
+    Format content for SMS delivery with LLM intelligence.
+    
+    Use this after user confirms they want SMS to create the actual SMS content.
+    
+    Args:
+        content: Original content to format
+        content_type: Type of content (faq, appointment, billing, etc.)
+        include_contact: Whether to include contact info (532)
+        
+    Returns:
+        Dict with success, formatted SMS content, character count
+    """
+    try:
+        from utils.gemma_provider import call_gemma
+        
+        system_message = """
+Sen SMS formatçısısın. İçeriği SMS için optimize et.
+
+SMS KURALLARI:
+- "Turkcell:" ile başla
+- Max 160 karakter (Türkçe karakterler dahil)
+- Önemli bilgileri koru
+- Telefon numarası varsa dahil et
+- Link varsa kısalt veya ana domain kullan
+- Net ve anlaşılır ol
+- Gereksiz kelimeleri çıkar
+
+FORMAT TİPLERİ:
+- FAQ: "Turkcell: [Kısa cevap] Detay: turkcell.com.tr Yardım: 532"
+- Randevu: "Turkcell: Randevu [tarih] [saat] [ekip]. İptal/değişiklik: 532"
+- Fatura: "Turkcell: Fatura [miktar] [vade]. Ödeme: *532*# Yardım: 532"
+- Genel: "Turkcell: [Ana bilgi] Yardım: 532"
+
+ÖNEMLİ: 160 karakter sınırını aşma!
+        """.strip()
+        
+        contact_suffix = " Yardım: 532" if include_contact else ""
+        max_content_length = 160 - len(contact_suffix) - 10  # Reserve space for "Turkcell: "
+        
+        prompt = f"""
+İçerik türü: {content_type}
+Orijinal içerik: {content}
+Maksimum karakter: {max_content_length}
+İletişim bilgisi ekle: {include_contact}
+
+Bu içeriği SMS formatına çevir (max 160 karakter).
+        """.strip()
+        
+        sms_content = await call_gemma(
+            prompt=prompt,
+            system_message=system_message,
+            temperature=0.2
+        )
+        
+        # Clean and ensure SMS format
+        sms_content = sms_content.strip()
+        
+        # Ensure starts with "Turkcell:"
+        if not sms_content.startswith("Kermits:"):
+            sms_content = "Kermits: " + sms_content
+        
+        # Ensure character limit
+        if len(sms_content) > 160:
+            available_chars = 160 - len(contact_suffix)
+            sms_content = sms_content[:available_chars-3] + "..."
+        
+        # Add contact suffix if requested and space available
+        if include_contact and len(sms_content) + len(contact_suffix) <= 160:
+            if not "532" in sms_content:
+                sms_content += contact_suffix
+        
+        logger.info(f"SMS formatted: {len(sms_content)} characters")
+        
+        return {
+            "success": True,
+            "sms_content": sms_content,
+            "character_count": len(sms_content),
+            "within_limit": len(sms_content) <= 160,
+            "content_type": content_type,
+            "message": "Content formatted for SMS successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"SMS formatting failed: {e}")
+
+        # Handle any exceptions during formatting
+        return {
+            "success": False,
+            "sms_content": "",
+            "character_count": 0,
+            "within_limit": False,
+            "content_type": content_type,
+            "message": f"SMS formatlama hatası: {str(e)}"
+        }
+
+
+@tool
+def send_sms_message(sms_content: str, force_send: bool = False) -> Dict[str, Any]:
+    """
+    Send SMS message using Twilio service.
+    
+    Use this only after user has confirmed they want SMS.
+    Always validate that user gave permission before calling this tool.
+    
+    Args:
+        sms_content: Formatted SMS content to send
+        force_send: Override safety check (use with caution)
+        
+    Returns:
+        Dict with success, message SID, delivery info, and status
+    """
+    try:
+        # Safety check - content should be properly formatted
+        if not sms_content.startswith("Kermits:") and not force_send:
+            return {
+                "success": False,
+                "message": "SMS content must start with 'Turkcell:' identifier",
+                "sms_content": sms_content,
+                "sent": False
+            }
+        
+        # Character limit check
+        if len(sms_content) > 160:
+            logger.warning(f"SMS content exceeds 160 characters: {len(sms_content)}")
+            if not force_send:
+                return {
+                    "success": False,
+                    "message": f"SMS too long: {len(sms_content)} characters (max 160)",
+                    "sms_content": sms_content,
+                    "sent": False
+                }
+        
+        # Send via Twilio
+        result = sms_service.send_sms(sms_content)
+        
+        if result["success"]:
+            logger.info(f"SMS sent successfully: {result['message_sid']}")
+            return {
+                "success": True,
+                "message": "SMS gönderildi!",
+                "message_sid": result["message_sid"],
+                "to_number": result["to_number"],
+                "sms_content": sms_content,
+                "character_count": len(sms_content),
+                "sent": True
+            }
+        else:
+            logger.error(f"SMS sending failed: {result['error']}")
+            return {
+                "success": False,
+                "message": f"SMS gönderilemedi: {result['error']}",
+                "sms_content": sms_content,
+                "sent": False,
+                "error": result["error"]
+            }
+            
+    except Exception as e:
+        logger.error(f"SMS sending exception: {e}")
+
+        return {
+            "success": False,
+            "message": f"SMS gönderim hatası: {str(e)}",
+            "sms_content": sms_content,
+            "sent": False,
+            "error": str(e)
+        }
+
+# ======================== FAQ TOOLS ========================
+@tool
+async def search_faq_knowledge(question: str, top_k: int = 3) -> Dict[str, Any]:
+    """
+    Search FAQ knowledge base using vector similarity.
+    
+    Use this when customer asks general questions about:
+    - How to do something ("How do I pay my bill?")
+    - Company policies and procedures  
+    - Service information ("What is roaming?")
+    - Technical help guides ("How to setup modem?")
+    - General inquiries that don't need customer-specific data
+    
+    Args:
+        question: Customer's question to search for
+        top_k: Number of similar FAQs to retrieve (default 3)
+        
+    Returns:
+        Dict with success, relevant FAQ entries, count, and relevance scores
+    """
+    try:
+        # Import here to avoid circular imports
+        from embeddings.embedding_system import embedding_system
+        from qdrant_client import QdrantClient
+        
+        # Create embedding for user question
+        query_embedding = embedding_system.create_embedding(question)
+        
+        # Search in Qdrant vector database
+        client = QdrantClient(host="localhost", port=6333)
+        
+        search_results = client.search(
+            collection_name="turkcell_sss",
+            query_vector=query_embedding.tolist(),
+            limit=top_k,
+            with_payload=True
+        )
+        
+        # Format results with relevance scoring
+        results = []
+        for result in search_results:
+            relevance = 'high' if result.score > 0.8 else 'medium' if result.score > 0.6 else 'low'
+            
+            results.append({
+                'score': float(result.score),
+                'question': result.payload.get('question', ''),
+                'answer': result.payload.get('answer', ''),
+                'source': result.payload.get('source', ''),
+                'relevance': relevance
+            })
+        
+        logger.info(f"FAQ search found {len(results)} results for: '{question[:50]}...'")
+        
+        return {
+            "success": True,
+            "results": results,
+            "count": len(results),
+            "query": question,
+            "message": f"{len(results)} FAQ found" if results else "No relevant FAQ found"
+        }
+        
+    except Exception as e:
+        logger.error(f"FAQ search failed: {e}")
+        return {
+            "success": False,
+            "results": [],
+            "count": 0,
+            "query": question,
+            "message": f"FAQ search error: {str(e)}"
+        }
+
 # ======================== AUTHENTICATION TOOLS ========================
 
 @tool
@@ -468,6 +770,9 @@ TOOL_GROUPS = {
         change_customer_plan,
         authenticate_customer,
         check_tc_kimlik_exists,
+        format_content_for_sms,
+        send_sms_message,
+        search_faq_knowledge,
     ],
     
     "billing_tools": [
@@ -477,6 +782,9 @@ TOOL_GROUPS = {
         create_bill_dispute,
         authenticate_customer,
         check_tc_kimlik_exists,
+        format_content_for_sms,
+        send_sms_message,
+        search_faq_knowledge,
     ],
     
     "technical_tools": [
@@ -486,13 +794,20 @@ TOOL_GROUPS = {
         reschedule_appointment,
         authenticate_customer,
         check_tc_kimlik_exists,
+        format_content_for_sms,
+        send_sms_message,
+        search_faq_knowledge,
     ],
     
     "registration_tools": [
         register_new_customer,
         authenticate_customer,
         check_tc_kimlik_exists,
-    ]
+        format_content_for_sms,
+        send_sms_message,
+        search_faq_knowledge,
+    ],
+
 }
 
 # Helper function to get tools by group
@@ -538,7 +853,15 @@ ALL_MCP_TOOLS = [
     reschedule_appointment,
     
     # Registration tools
-    register_new_customer
+    register_new_customer,
+
+    # SMS tools
+    format_content_for_sms,
+    send_sms_message,
+
+    # FAQ tools
+    search_faq_knowledge,
+
 ]
 
 if __name__ == "__main__":
@@ -546,7 +869,7 @@ if __name__ == "__main__":
     print("🔧 MCP Tools Loaded Successfully!")
     print(f"Total tools: {len(ALL_MCP_TOOLS)}")
     print(f"Tool groups: {list(TOOL_GROUPS.keys())}")
-    
+
     # Test a simple tool using proper LangChain invoke method
     try:
         available_plans = get_available_plans.invoke({})

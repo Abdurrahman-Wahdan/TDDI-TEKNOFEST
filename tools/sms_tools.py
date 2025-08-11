@@ -77,285 +77,285 @@ sms_service = SMSService()
 
 # ======================== SMS DECISION TOOLS ========================
 
-@tool
-async def should_offer_sms_for_content(content: str, content_type: str = "general") -> Dict[str, Any]:
-    """
-    Analyze if content would benefit from SMS delivery.
+# @tool
+# async def should_offer_sms_for_content(content: str, content_type: str = "general") -> Dict[str, Any]:
+#     """
+#     Analyze if content would benefit from SMS delivery.
     
-    Use this after providing detailed information to determine if SMS copy would help customer.
+#     Use this after providing detailed information to determine if SMS copy would help customer.
     
-    Args:
-        content: The response content provided to user
-        content_type: Type of content (faq, billing, technical, appointment, etc.)
+#     Args:
+#         content: The response content provided to user
+#         content_type: Type of content (faq, billing, technical, appointment, etc.)
         
-    Returns:
-        Dict with should_offer_sms boolean, reason, and recommendation
-    """
-    try:
-        from utils.gemma_provider import call_gemma
+#     Returns:
+#         Dict with should_offer_sms boolean, reason, and recommendation
+#     """
+#     try:
+#         from utils.gemma_provider import call_gemma
         
-        system_message = """
-Sen SMS karar uzmanısın. İçeriği analiz et ve SMS faydalı mı belirle.
+#         system_message = """
+# Sen SMS karar uzmanısın. İçeriği analiz et ve SMS faydalı mı belirle.
 
-SMS FAYDALI DURUMLAR:
-- Uzun talimatlar (5+ adım)
-- Önemli telefon numaraları  
-- Website linkleri
-- Kurulum/ayar adımları
-- Randevu confirmasyonları
-- Ödeme bilgileri
-- Hesap numaraları/kodlar
+# SMS FAYDALI DURUMLAR:
+# - Uzun talimatlar (5+ adım)
+# - Önemli telefon numaraları  
+# - Website linkleri
+# - Kurulum/ayar adımları
+# - Randevu confirmasyonları
+# - Ödeme bilgileri
+# - Hesap numaraları/kodlar
 
-SMS GEREKSİZ DURUMLAR:
-- Kısa basit yanıtlar (1-2 cümle)
-- Genel sohbet
-- Evet/hayır cevapları
-- Sadece teşekkür mesajları
+# SMS GEREKSİZ DURUMLAR:
+# - Kısa basit yanıtlar (1-2 cümle)
+# - Genel sohbet
+# - Evet/hayır cevapları
+# - Sadece teşekkür mesajları
 
-YANIT FORMATI:
-{
-  "should_offer": true/false,
-  "reason": "açıklama",
-  "content_length": "short/medium/long",
-  "contains_instructions": true/false
-}
-        """.strip()
+# YANIT FORMATI:
+# {
+#   "should_offer": true/false,
+#   "reason": "açıklama",
+#   "content_length": "short/medium/long",
+#   "contains_instructions": true/false
+# }
+#         """.strip()
         
-        prompt = f"""
-İçerik Türü: {content_type}
-İçerik: {content[:500]}...
+#         prompt = f"""
+# İçerik Türü: {content_type}
+# İçerik: {content[:500]}...
 
-Bu içerik için SMS faydalı mı? Analiz et.
-        """.strip()
+# Bu içerik için SMS faydalı mı? Analiz et.
+#         """.strip()
         
-        response = await call_gemma(
-            prompt=prompt,
-            system_message=system_message,
-            temperature=0.1
-        )
+#         response = await call_gemma(
+#             prompt=prompt,
+#             system_message=system_message,
+#             temperature=0.1
+#         )
         
-        # Extract JSON from response
-        from nodes.classify import extract_json_from_response
-        decision_data = extract_json_from_response(response)
+#         # Extract JSON from response
+#         from nodes.classify import extract_json_from_response
+#         decision_data = extract_json_from_response(response)
         
-        if decision_data and "should_offer" in decision_data:
-            result = {
-                "success": True,
-                "should_offer_sms": decision_data["should_offer"],
-                "reason": decision_data.get("reason", "LLM analysis"),
-                "content_analysis": {
-                    "length": decision_data.get("content_length", "unknown"),
-                    "has_instructions": decision_data.get("contains_instructions", False)
-                },
-                "content_type": content_type
-            }
-        else:
-            # Fallback decision
-            content_length = len(content)
-            has_steps = any(keyword in content.lower() for keyword in ["adım", "step", "1.", "2.", "önce", "sonra"])
-            has_contact = any(keyword in content for keyword in ["532", "telefon", "www", "http", "turkcell.com"])
+#         if decision_data and "should_offer" in decision_data:
+#             result = {
+#                 "success": True,
+#                 "should_offer_sms": decision_data["should_offer"],
+#                 "reason": decision_data.get("reason", "LLM analysis"),
+#                 "content_analysis": {
+#                     "length": decision_data.get("content_length", "unknown"),
+#                     "has_instructions": decision_data.get("contains_instructions", False)
+#                 },
+#                 "content_type": content_type
+#             }
+#         else:
+#             # Fallback decision
+#             content_length = len(content)
+#             has_steps = any(keyword in content.lower() for keyword in ["adım", "step", "1.", "2.", "önce", "sonra"])
+#             has_contact = any(keyword in content for keyword in ["532", "telefon", "www", "http", "turkcell.com"])
             
-            should_offer = (content_length > 200) or has_steps or has_contact
+#             should_offer = (content_length > 200) or has_steps or has_contact
             
-            result = {
-                "success": True,
-                "should_offer_sms": should_offer,
-                "reason": "Fallback analysis based on content features",
-                "content_analysis": {
-                    "length": "long" if content_length > 300 else "medium" if content_length > 100 else "short",
-                    "has_instructions": has_steps
-                },
-                "content_type": content_type
-            }
+#             result = {
+#                 "success": True,
+#                 "should_offer_sms": should_offer,
+#                 "reason": "Fallback analysis based on content features",
+#                 "content_analysis": {
+#                     "length": "long" if content_length > 300 else "medium" if content_length > 100 else "short",
+#                     "has_instructions": has_steps
+#                 },
+#                 "content_type": content_type
+#             }
         
-        logger.info(f"SMS decision for {content_type}: {result['should_offer_sms']} - {result['reason']}")
-        return result
+#         logger.info(f"SMS decision for {content_type}: {result['should_offer_sms']} - {result['reason']}")
+#         return result
         
-    except Exception as e:
-        logger.error(f"SMS decision analysis failed: {e}")
-        return {
-            "success": False,
-            "should_offer_sms": False,
-            "reason": f"Analysis error: {str(e)}",
-            "content_analysis": {},
-            "content_type": content_type
-        }
+#     except Exception as e:
+#         logger.error(f"SMS decision analysis failed: {e}")
+#         return {
+#             "success": False,
+#             "should_offer_sms": False,
+#             "reason": f"Analysis error: {str(e)}",
+#             "content_analysis": {},
+#             "content_type": content_type
+#         }
 
-@tool
-async def create_sms_offer_message(content: str, context: str = "") -> Dict[str, Any]:
-    """
-    Create a natural SMS offer message to ask user permission.
+# @tool
+# async def create_sms_offer_message(content: str, context: str = "") -> Dict[str, Any]:
+#     """
+#     Create a natural SMS offer message to ask user permission.
     
-    Use this when SMS would be helpful to generate a friendly offer message.
+#     Use this when SMS would be helpful to generate a friendly offer message.
     
-    Args:
-        content: The content that could be sent via SMS
-        context: Additional conversation context
+#     Args:
+#         content: The content that could be sent via SMS
+#         context: Additional conversation context
         
-    Returns:
-        Dict with success, offer message, and SMS preview
-    """
-    try:
-        from utils.gemma_provider import call_gemma
+#     Returns:
+#         Dict with success, offer message, and SMS preview
+#     """
+#     try:
+#         from utils.gemma_provider import call_gemma
         
-        system_message = """
-Sen SMS teklif uzmanısın. Kullanıcıya SMS teklifi yap.
+#         system_message = """
+# Sen SMS teklif uzmanısın. Kullanıcıya SMS teklifi yap.
 
-TEKLIF MESAJI KURALLARI:
-- Dostça ve samimi ol
-- SMS'in faydasını açıkla (elinizde kalır, pratik, vs.)
-- İzin iste (onay gerekli)
-- Kısa ve net ol
-- Turkcell standardına uygun ol
+# TEKLIF MESAJI KURALLARI:
+# - Dostça ve samimi ol
+# - SMS'in faydasını açıkla (elinizde kalır, pratik, vs.)
+# - İzin iste (onay gerekli)
+# - Kısa ve net ol
+# - Turkcell standardına uygun ol
 
-ÖRNEKLER:
-"Bu kurulum talimatlarını SMS ile de gönderebilirim, böylece elinizde kalır. İster misiniz?"
-"Randevu detaylarınızı SMS ile gönderebilirim, hatırlatma amaçlı. Onaylıyor musunuz?"
-"Bu bilgileri SMS olarak da iletebilirim, daha kolay erişim için. Göndereyim mi?"
+# ÖRNEKLER:
+# "Bu kurulum talimatlarını SMS ile de gönderebilirim, böylece elinizde kalır. İster misiniz?"
+# "Randevu detaylarınızı SMS ile gönderebilirim, hatırlatma amaçlı. Onaylıyor musunuz?"
+# "Bu bilgileri SMS olarak da iletebilirim, daha kolay erişim için. Göndereyim mi?"
 
-Kullanıcının onayını bekle. Zorla kabul ettirme.
-        """.strip()
+# Kullanıcının onayını bekle. Zorla kabul ettirme.
+#         """.strip()
         
-        # Preview what SMS would contain
-        sms_preview = content[:100] + "..." if len(content) > 100 else content
+#         # Preview what SMS would contain
+#         sms_preview = content[:100] + "..." if len(content) > 100 else content
         
-        prompt = f"""
-Konuşma bağlamı: {context}
-SMS olarak gönderilecek içerik: {sms_preview}
+#         prompt = f"""
+# Konuşma bağlamı: {context}
+# SMS olarak gönderilecek içerik: {sms_preview}
 
-Bu içerik için doğal bir SMS teklif mesajı oluştur.
-        """.strip()
+# Bu içerik için doğal bir SMS teklif mesajı oluştur.
+#         """.strip()
         
-        offer_message = await call_gemma(
-            prompt=prompt,
-            system_message=system_message,
-            temperature=0.3
-        )
+#         offer_message = await call_gemma(
+#             prompt=prompt,
+#             system_message=system_message,
+#             temperature=0.3
+#         )
         
-        logger.info("SMS offer message created")
+#         logger.info("SMS offer message created")
         
-        return {
-            "success": True,
-            "offer_message": offer_message,
-            "sms_preview": sms_preview,
-            "requires_confirmation": True,
-            "message": "SMS offer message generated"
-        }
+#         return {
+#             "success": True,
+#             "offer_message": offer_message,
+#             "sms_preview": sms_preview,
+#             "requires_confirmation": True,
+#             "message": "SMS offer message generated"
+#         }
         
-    except Exception as e:
-        logger.error(f"SMS offer creation failed: {e}")
-        return {
-            "success": False,
-            "offer_message": "Bu bilgileri SMS ile de gönderebilirim, ister misiniz?",
-            "sms_preview": content[:50] + "...",
-            "requires_confirmation": True,
-            "message": f"SMS offer error: {str(e)}"
-        }
+#     except Exception as e:
+#         logger.error(f"SMS offer creation failed: {e}")
+#         return {
+#             "success": False,
+#             "offer_message": "Bu bilgileri SMS ile de gönderebilirim, ister misiniz?",
+#             "sms_preview": content[:50] + "...",
+#             "requires_confirmation": True,
+#             "message": f"SMS offer error: {str(e)}"
+#         }
 
-@tool
-async def check_sms_confirmation(user_response: str) -> Dict[str, Any]:
-    """
-    Check if user confirmed or declined SMS offer.
+# @tool
+# async def check_sms_confirmation(user_response: str) -> Dict[str, Any]:
+#     """
+#     Check if user confirmed or declined SMS offer.
     
-    Use this to analyze user's response to SMS offer.
+#     Use this to analyze user's response to SMS offer.
     
-    Args:
-        user_response: User's response to SMS offer
+#     Args:
+#         user_response: User's response to SMS offer
         
-    Returns:
-        Dict with success, confirmed boolean, confidence, and interpretation
-    """
-    try:
-        from utils.gemma_provider import call_gemma
+#     Returns:
+#         Dict with success, confirmed boolean, confidence, and interpretation
+#     """
+#     try:
+#         from utils.gemma_provider import call_gemma
         
-        system_message = """
-Sen onay kontrol uzmanısın. Kullanıcı SMS gönderilmesini onayladı mı?
+#         system_message = """
+# Sen onay kontrol uzmanısın. Kullanıcı SMS gönderilmesini onayladı mı?
 
-ONAY İFADELERİ:
-- Evet, istiyorum, gönder, olur, tamam, onaylıyorum
-- Lütfen gönder, isterim, hayır sorun değil
-- OK, okey, tabi, tabii ki
+# ONAY İFADELERİ:
+# - Evet, istiyorum, gönder, olur, tamam, onaylıyorum
+# - Lütfen gönder, isterim, hayır sorun değil
+# - OK, okey, tabi, tabii ki
 
-RET İFADELERİ:  
-- Hayır, istemiyorum, gerek yok, gerekmiyor
-- Vazgeçtim, iptal, istemem
-- Yok teşekkürler, gerek duymuyorum
+# RET İFADELERİ:  
+# - Hayır, istemiyorum, gerek yok, gerekmiyor
+# - Vazgeçtim, iptal, istemem
+# - Yok teşekkürler, gerek duymuyorum
 
-BELİRSİZ İFADELER:
-- Belki, emin değilim, düşüneyim
-- Başka bir şey sormak istiyorum (konu değiştirme)
+# BELİRSİZ İFADELER:
+# - Belki, emin değilim, düşüneyim
+# - Başka bir şey sormak istiyorum (konu değiştirme)
 
-YANIT FORMATI:
-{
-  "confirmed": true/false/null,
-  "confidence": "high/medium/low", 
-  "interpretation": "açıklama"
-}
+# YANIT FORMATI:
+# {
+#   "confirmed": true/false/null,
+#   "confidence": "high/medium/low", 
+#   "interpretation": "açıklama"
+# }
 
-null = belirsiz/konu değiştirme
-        """.strip()
+# null = belirsiz/konu değiştirme
+#         """.strip()
         
-        prompt = f"""
-Kullanıcı yanıtı: "{user_response}"
+#         prompt = f"""
+# Kullanıcı yanıtı: "{user_response}"
 
-SMS gönderimini onayladı mı? Analiz et.
-        """.strip()
+# SMS gönderimini onayladı mı? Analiz et.
+#         """.strip()
         
-        response = await call_gemma(
-            prompt=prompt,
-            system_message=system_message,
-            temperature=0.1
-        )
+#         response = await call_gemma(
+#             prompt=prompt,
+#             system_message=system_message,
+#             temperature=0.1
+#         )
         
-        # Extract JSON from response
-        from nodes.classify import extract_json_from_response
-        confirmation_data = extract_json_from_response(response)
+#         # Extract JSON from response
+#         from nodes.classify import extract_json_from_response
+#         confirmation_data = extract_json_from_response(response)
         
-        if confirmation_data and "confirmed" in confirmation_data:
-            result = {
-                "success": True,
-                "confirmed": confirmation_data["confirmed"],
-                "confidence": confirmation_data.get("confidence", "medium"),
-                "interpretation": confirmation_data.get("interpretation", "LLM analysis"),
-                "user_response": user_response
-            }
-        else:
-            # Fallback simple analysis
-            user_lower = user_response.lower()
+#         if confirmation_data and "confirmed" in confirmation_data:
+#             result = {
+#                 "success": True,
+#                 "confirmed": confirmation_data["confirmed"],
+#                 "confidence": confirmation_data.get("confidence", "medium"),
+#                 "interpretation": confirmation_data.get("interpretation", "LLM analysis"),
+#                 "user_response": user_response
+#             }
+#         else:
+#             # Fallback simple analysis
+#             user_lower = user_response.lower()
             
-            if any(word in user_lower for word in ["evet", "istiyorum", "gönder", "olur", "tamam", "ok", "tabi"]):
-                confirmed = True
-                confidence = "medium"
-                interpretation = "Positive keywords detected"
-            elif any(word in user_lower for word in ["hayır", "istemiyorum", "gerek", "yok", "vazgeç"]):
-                confirmed = False
-                confidence = "medium"  
-                interpretation = "Negative keywords detected"
-            else:
-                confirmed = None
-                confidence = "low"
-                interpretation = "Unclear or topic change"
+#             if any(word in user_lower for word in ["evet", "istiyorum", "gönder", "olur", "tamam", "ok", "tabi"]):
+#                 confirmed = True
+#                 confidence = "medium"
+#                 interpretation = "Positive keywords detected"
+#             elif any(word in user_lower for word in ["hayır", "istemiyorum", "gerek", "yok", "vazgeç"]):
+#                 confirmed = False
+#                 confidence = "medium"  
+#                 interpretation = "Negative keywords detected"
+#             else:
+#                 confirmed = None
+#                 confidence = "low"
+#                 interpretation = "Unclear or topic change"
                 
-            result = {
-                "success": True,
-                "confirmed": confirmed,
-                "confidence": confidence,
-                "interpretation": interpretation,
-                "user_response": user_response
-            }
+#             result = {
+#                 "success": True,
+#                 "confirmed": confirmed,
+#                 "confidence": confidence,
+#                 "interpretation": interpretation,
+#                 "user_response": user_response
+#             }
         
-        logger.info(f"SMS confirmation check: {result['confirmed']} ({result['confidence']})")
-        return result
+#         logger.info(f"SMS confirmation check: {result['confirmed']} ({result['confidence']})")
+#         return result
         
-    except Exception as e:
-        logger.error(f"SMS confirmation check failed: {e}")
-        return {
-            "success": False,
-            "confirmed": None,
-            "confidence": "low",
-            "interpretation": f"Error: {str(e)}",
-            "user_response": user_response
-        }
+#     except Exception as e:
+#         logger.error(f"SMS confirmation check failed: {e}")
+#         return {
+#             "success": False,
+#             "confirmed": None,
+#             "confidence": "low",
+#             "interpretation": f"Error: {str(e)}",
+#             "user_response": user_response
+#         }
 
 # ======================== SMS FORMATTING TOOLS ========================
 
@@ -533,91 +533,91 @@ def send_sms_message(sms_content: str, force_send: bool = False) -> Dict[str, An
             "error": str(e)
         }
 
-@tool
-async def complete_sms_workflow(content: str, content_type: str = "general", user_confirmed: bool = False) -> Dict[str, Any]:
-    """
-    Complete SMS workflow: format content and send if user confirmed.
+# @tool
+# async def complete_sms_workflow(content: str, content_type: str = "general", user_confirmed: bool = False) -> Dict[str, Any]:
+#     """
+#     Complete SMS workflow: format content and send if user confirmed.
     
-    Use this as a one-stop tool for handling SMS delivery after user confirmation.
+#     Use this as a one-stop tool for handling SMS delivery after user confirmation.
     
-    Args:
-        content: Original content to send via SMS
-        content_type: Type of content (faq, appointment, billing, etc.)
-        user_confirmed: User must have explicitly confirmed SMS delivery
+#     Args:
+#         content: Original content to send via SMS
+#         content_type: Type of content (faq, appointment, billing, etc.)
+#         user_confirmed: User must have explicitly confirmed SMS delivery
         
-    Returns:
-        Dict with complete SMS workflow result
-    """
-    try:
-        if not user_confirmed:
-            return {
-                "success": False,
-                "message": "User confirmation required before sending SMS",
-                "sent": False,
-                "workflow_step": "confirmation_required"
-            }
+#     Returns:
+#         Dict with complete SMS workflow result
+#     """
+#     try:
+#         if not user_confirmed:
+#             return {
+#                 "success": False,
+#                 "message": "User confirmation required before sending SMS",
+#                 "sent": False,
+#                 "workflow_step": "confirmation_required"
+#             }
         
-        # Step 1: Format content for SMS
-        format_result = await format_content_for_sms.ainvoke({
-            "content": content,
-            "content_type": content_type,
-            "include_contact": True
-        })
+#         # Step 1: Format content for SMS
+#         format_result = await format_content_for_sms.ainvoke({
+#             "content": content,
+#             "content_type": content_type,
+#             "include_contact": True
+#         })
         
-        if not format_result["success"]:
-            return {
-                "success": False,
-                "message": "SMS formatting failed",
-                "sent": False,
-                "workflow_step": "formatting_failed",
-                "format_error": format_result["message"]
-            }
+#         if not format_result["success"]:
+#             return {
+#                 "success": False,
+#                 "message": "SMS formatting failed",
+#                 "sent": False,
+#                 "workflow_step": "formatting_failed",
+#                 "format_error": format_result["message"]
+#             }
         
-        # Step 2: Send formatted SMS
-        send_result = send_sms_message.invoke({
-            "sms_content": format_result["sms_content"],
-            "force_send": False
-        })
+#         # Step 2: Send formatted SMS
+#         send_result = send_sms_message.invoke({
+#             "sms_content": format_result["sms_content"],
+#             "force_send": False
+#         })
         
-        if send_result["success"]:
-            return {
-                "success": True,
-                "message": "SMS başarıyla gönderildi!",
-                "sent": True,
-                "workflow_step": "completed",
-                "sms_content": format_result["sms_content"],
-                "character_count": format_result["character_count"],
-                "message_sid": send_result["message_sid"]
-            }
-        else:
-            return {
-                "success": False,
-                "message": f"SMS gönderilemedi: {send_result['message']}",
-                "sent": False,
-                "workflow_step": "sending_failed",
-                "sms_content": format_result["sms_content"],
-                "send_error": send_result.get("error", "Unknown error")
-            }
+#         if send_result["success"]:
+#             return {
+#                 "success": True,
+#                 "message": "SMS başarıyla gönderildi!",
+#                 "sent": True,
+#                 "workflow_step": "completed",
+#                 "sms_content": format_result["sms_content"],
+#                 "character_count": format_result["character_count"],
+#                 "message_sid": send_result["message_sid"]
+#             }
+#         else:
+#             return {
+#                 "success": False,
+#                 "message": f"SMS gönderilemedi: {send_result['message']}",
+#                 "sent": False,
+#                 "workflow_step": "sending_failed",
+#                 "sms_content": format_result["sms_content"],
+#                 "send_error": send_result.get("error", "Unknown error")
+#             }
             
-    except Exception as e:
-        logger.error(f"Complete SMS workflow failed: {e}")
-        return {
-            "success": False,
-            "message": f"SMS workflow hatası: {str(e)}",
-            "sent": False,
-            "workflow_step": "workflow_error",
-            "error": str(e)
-        }
+#     except Exception as e:
+#         logger.error(f"Complete SMS workflow failed: {e}")
+#         return {
+#             "success": False,
+#             "message": f"SMS workflow hatası: {str(e)}",
+#             "sent": False,
+#             "workflow_step": "workflow_error",
+#             "error": str(e)
+#         }
 
 # ======================== TOOL GROUPS CONFIGURATION ========================
 
 SMS_TOOLS = [
-    should_offer_sms_for_content,
-    create_sms_offer_message,
-    check_sms_confirmation,
+    # should_offer_sms_for_content,
+    # create_sms_offer_message,
+    # check_sms_confirmation,
     format_content_for_sms,
     send_sms_message,
-    complete_sms_workflow
+    # complete_sms_workflow
 ]
 
 # For integration with main tool groups
@@ -625,67 +625,67 @@ SMS_TOOL_GROUP = {
     "sms_tools": SMS_TOOLS
 }
 
-if __name__ == "__main__":
-    # Test SMS tools
-    import asyncio
+# if __name__ == "__main__":
+#     # Test SMS tools
+#     import asyncio
     
-    async def test_sms_tools():
-        print("📱 Testing SMS Tools...")
+#     async def test_sms_tools():
+#         print("📱 Testing SMS Tools...")
         
-        # Test SMS decision
-        try:
-            decision_result = await should_offer_sms_for_content.ainvoke({
-                "content": "Faturanızı ödemek için şu adımları izleyin: 1) Turkcell uygulamasını açın 2) Fatura sekmesine gidin 3) Ödeme yöntemini seçin 4) Ödeme miktarını girin 5) Onaylayın. Daha fazla yardım için 532'yi arayabilirsiniz.",
-                "content_type": "faq"
-            })
-            print(f"✅ SMS decision test: Should offer = {decision_result.get('should_offer_sms', False)}")
-            print(f"   Reason: {decision_result.get('reason', 'Unknown')}")
-        except Exception as e:
-            print(f"❌ SMS decision test failed: {e}")
+#         # Test SMS decision
+#         try:
+#             decision_result = await should_offer_sms_for_content.ainvoke({
+#                 "content": "Faturanızı ödemek için şu adımları izleyin: 1) Turkcell uygulamasını açın 2) Fatura sekmesine gidin 3) Ödeme yöntemini seçin 4) Ödeme miktarını girin 5) Onaylayın. Daha fazla yardım için 532'yi arayabilirsiniz.",
+#                 "content_type": "faq"
+#             })
+#             print(f"✅ SMS decision test: Should offer = {decision_result.get('should_offer_sms', False)}")
+#             print(f"   Reason: {decision_result.get('reason', 'Unknown')}")
+#         except Exception as e:
+#             print(f"❌ SMS decision test failed: {e}")
         
-        # Test SMS offer message
-        try:
-            offer_result = await create_sms_offer_message.ainvoke({
-                "content": "Randevu detaylarınız: 15 Şubat 2024, saat 14:00, Teknik Ekip A",
-                "context": "Müşteri teknik destek randevusu aldı"
-            })
-            print(f"✅ SMS offer test: {offer_result.get('success', False)}")
-            print(f"   Message: {offer_result.get('offer_message', 'N/A')[:50]}...")
-        except Exception as e:
-            print(f"❌ SMS offer test failed: {e}")
+#         # Test SMS offer message
+#         try:
+#             offer_result = await create_sms_offer_message.ainvoke({
+#                 "content": "Randevu detaylarınız: 15 Şubat 2024, saat 14:00, Teknik Ekip A",
+#                 "context": "Müşteri teknik destek randevusu aldı"
+#             })
+#             print(f"✅ SMS offer test: {offer_result.get('success', False)}")
+#             print(f"   Message: {offer_result.get('offer_message', 'N/A')[:50]}...")
+#         except Exception as e:
+#             print(f"❌ SMS offer test failed: {e}")
         
-        # Test SMS confirmation check
-        try:
-            confirmation_result = await check_sms_confirmation.ainvoke({
-                "user_response": "Evet istiyorum gönder"
-            })
-            print(f"✅ SMS confirmation test: Confirmed = {confirmation_result.get('confirmed', False)}")
-            print(f"   Confidence: {confirmation_result.get('confidence', 'Unknown')}")
-        except Exception as e:
-            print(f"❌ SMS confirmation test failed: {e}")
+#         # Test SMS confirmation check
+#         try:
+#             confirmation_result = await check_sms_confirmation.ainvoke({
+#                 "user_response": "Evet istiyorum gönder"
+#             })
+#             print(f"✅ SMS confirmation test: Confirmed = {confirmation_result.get('confirmed', False)}")
+#             print(f"   Confidence: {confirmation_result.get('confidence', 'Unknown')}")
+#         except Exception as e:
+#             print(f"❌ SMS confirmation test failed: {e}")
         
-        # Test SMS formatting
-        try:
-            format_result = await format_content_for_sms.ainvoke({
-                "content": "Faturanızı ödemek için Turkcell uygulamasını kullanabilir, *532*# tuşlayabilir veya turkcell.com.tr adresinden online ödeme yapabilirsiniz.",
-                "content_type": "billing",
-                "include_contact": True
-            })
-            print(f"✅ SMS formatting test: {format_result.get('success', False)}")
-            print(f"   Characters: {format_result.get('character_count', 0)}/160")
-            print(f"   Content: {format_result.get('sms_content', 'N/A')}")
-        except Exception as e:
-            print(f"❌ SMS formatting test failed: {e}")
+#         # Test SMS formatting
+#         try:
+#             format_result = await format_content_for_sms.ainvoke({
+#                 "content": "Faturanızı ödemek için Turkcell uygulamasını kullanabilir, *532*# tuşlayabilir veya turkcell.com.tr adresinden online ödeme yapabilirsiniz.",
+#                 "content_type": "billing",
+#                 "include_contact": True
+#             })
+#             print(f"✅ SMS formatting test: {format_result.get('success', False)}")
+#             print(f"   Characters: {format_result.get('character_count', 0)}/160")
+#             print(f"   Content: {format_result.get('sms_content', 'N/A')}")
+#         except Exception as e:
+#             print(f"❌ SMS formatting test failed: {e}")
         
-        # Test SMS sending (dry run)
-        print(f"📱 SMS Service Status: {'✅ Available' if sms_service.client else '❌ Not Available'}")
+#         # Test SMS sending (dry run)
+#         print(f"📱 SMS Service Status: {'✅ Available' if sms_service.client else '❌ Not Available'}")
     
-    print("🔧 SMS Tools Loaded Successfully!")
-    print(f"Total SMS tools: {len(SMS_TOOLS)}")
-    print("Running async tests...")
+#     print("🔧 SMS Tools Loaded Successfully!")
+#     print(f"Total SMS tools: {len(SMS_TOOLS)}")
+#     print("Running async tests...")
     
-    # Run async tests
-    try:
-        asyncio.run(test_sms_tools())
-    except Exception as e:
-        print(f"❌ Async test setup failed: {e}")
+#     # Run async tests
+#     try:
+#         asyncio.run(test_sms_tools())
+#     except Exception as e:
+#         print(f"❌ Async test setup failed: {e}")

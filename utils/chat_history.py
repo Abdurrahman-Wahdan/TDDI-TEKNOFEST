@@ -1,6 +1,15 @@
 
 from datetime import datetime
+import json
+import re
 from typing import List, Dict, Any, TypedDict, Optional
+import os
+import sys
+
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from utils.gemma_provider import call_gemma
 
 # ======================== History Helper Function ========================
 def add_to_chat_history(state: dict, role: str, message: str, current_state: str = None) -> List[Dict[str, Any]]:
@@ -148,3 +157,96 @@ KONUŞMA GEÇMİŞİ:
 {recent_history}
 
 """
+
+async def add_message_and_update_summary(
+    state: dict,
+    role: str,
+    message: str,
+    summary_key: str = "chat_summary",
+    batch_size: int = 10,
+    tail_size: int = 4,  # Özet sonrası eklenecek son ham mesaj sayısı
+) -> None:
+    """
+    Mesajı chat_history'ye ekler,
+    summary stringine yeni mesajı ekler.
+    Eğer chat_history uzunluğu batch_size'a ulaştıysa,
+    tüm summary'yi ve yeni mesajı özetlemek için gönderir,
+    özetin sonuna son tail_size ham mesajı ekler,
+    state[summary_key] değerini günceller.
+    """
+
+    history = state.get("chat_history", [])
+    new_entry = {
+        "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+        "role": role,
+        "message": message,
+        "current_state": state.get("current_process", "unknown")
+    }
+    history.append(new_entry)
+    state["chat_history"] = history
+
+    summary = state.get(summary_key, "")
+
+    new_message_str = f"{role}: {message}\n"
+    updated_summary_text = summary + ("\n" if summary else "") + new_message_str
+
+    if len(history) % batch_size == 0:
+        # Tüm güncel metni özetle
+        batch_summary = await summarize_chat_history([{"role": "", "message": updated_summary_text}])
+
+        # Son tail_size ham mesajı hazırla
+        tail_msgs = history[-tail_size:]
+        tail_text = "\n".join(f"{msg['role']}: {msg['message']}" for msg in tail_msgs)
+
+        # Özet + son ham mesajları birleştir
+        new_summary = batch_summary.strip() + "\n\n" + tail_text.strip()
+
+        state[summary_key] = new_summary
+    else:
+        state[summary_key] = updated_summary_text
+
+async def summarize_chat_history(messages: List[Dict[str, Any]]) -> str:
+    """
+    Verilen mesaj listesini LLM ile özetler.
+    """
+    if not messages:
+        return ""
+
+    # Mesajları kullanıcı ve asistan formatında stringe dönüştür (örnek)
+    chat_text = "\n".join([f"{m['role']}: {m['message']}" for m in messages])
+
+    summary_prompt = f"""
+        Aşağıdaki müşteri ve asistan mesajlarını kısa ve öz şekilde özetle:
+
+        {chat_text}
+
+        Format:
+        {{
+            "summary": "kısa özet metni"
+        }}
+        """
+
+    response = await call_gemma(prompt=summary_prompt, temperature=0.5)
+
+    data = extract_json_from_response(response)
+    summary = data.get("summary", "").strip()
+    
+    return summary
+
+def extract_json_from_response(response: str) -> dict:
+    try:
+        return json.loads(response.strip())
+    except json.JSONDecodeError:
+        patterns = [
+            r'```json\s*(\{.*?\})\s*```',
+            r'```\s*(\{.*?\})\s*```',
+            r'(\{[^{}]*"tool_groups"[^{}]*\})',
+        ]
+        for pattern in patterns:
+            matches = re.findall(pattern, response, re.DOTALL | re.IGNORECASE)
+            for match in matches:
+                try:
+                    return json.loads(match.strip())
+                except json.JSONDecodeError:
+                    continue
+        return {}

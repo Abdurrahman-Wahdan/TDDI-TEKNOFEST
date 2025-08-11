@@ -4,34 +4,26 @@ config:
     curve: linear
 ---
 graph TD;
-	__start__([<p>__start__</p>]):::first
-	greeting(greeting)
-	collect_input(collect_input)
-	security(security)
-	classify(classify)
-	execute(execute)
-	end(end)
-	__end__([<p>__end__</p>]):::last
-	__start__ --> greeting;
-	end --> __end__;
-	greeting -.-> collect_input;
-	greeting -.-> security;
-	greeting -.-> end;
-	collect_input -.-> security;
-	collect_input -.-> classify;
-	collect_input -.-> end;
-	security -.-> classify;
-	security -.-> collect_input;
-	security -.-> end;
-	classify -.-> execute;
-	classify -.-> collect_input;
-	classify -.-> end;
-	execute -.-> collect_input;
-	execute -.-> classify;
-	execute -.-> end;
-	greeting -.-> greeting;
-	collect_input -.-> collect_input;
-	classify -.-> classify;
-	classDef default fill:#f2f0ff,line-height:1.2
-	classDef first fill-opacity:0
-	classDef last fill:#bfb6fc
+        __start__(<p>__start__</p>)
+        greeting(greeting)
+        classify(classify)
+        fallback(fallback)
+        process_tools(process_tools)
+        handle_error(handle_error)
+        end(end)
+        __end__([<p>__end__</p>]):::last
+        __start__ --> greeting;
+        end --> __end__;
+        greeting -. &nbsp;wait_for_input&nbsp; .-> __end__;
+        greeting -.-> __end__;
+        classify -.-> fallback;
+        classify -.-> process_tools;
+        classify -.-> end;
+        classify -.-> __end__;
+        fallback -.-> handle_error;
+        fallback -.-> __end__;
+        process_tools -.-> __end__;
+        handle_error -.-> __end__;
+        classDef default fill:#f2f0ff,line-height:1.2
+        classDef first fill-opacity:0
+        classDef last fill:#bfb6fc
