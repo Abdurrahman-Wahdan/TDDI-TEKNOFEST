@@ -460,35 +460,38 @@ def register_new_customer(tc_kimlik_no: str, first_name: str, last_name: str, ph
 
 # Tool groups for the enhanced classifier
 TOOL_GROUPS = {
-    "auth_tools": [
-        authenticate_customer,
-        check_tc_kimlik_exists
-    ],
-    
+
     "subscription_tools": [
         get_customer_active_plans,
         get_available_plans,
         get_customer_subscription_info,
-        change_customer_plan
+        change_customer_plan,
+        authenticate_customer,
+        check_tc_kimlik_exists,
     ],
     
     "billing_tools": [
         get_customer_bills,
         get_unpaid_bills,
         get_billing_summary,
-        create_bill_dispute
+        create_bill_dispute,
+        authenticate_customer,
+        check_tc_kimlik_exists,
     ],
     
     "technical_tools": [
         get_customer_active_appointment,
         get_available_appointment_slots,
         create_appointment,
-        reschedule_appointment
+        reschedule_appointment,
+        authenticate_customer,
+        check_tc_kimlik_exists,
     ],
     
     "registration_tools": [
+        register_new_customer,
+        authenticate_customer,
         check_tc_kimlik_exists,
-        register_new_customer
     ]
 }
 
