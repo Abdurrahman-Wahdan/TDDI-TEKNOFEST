@@ -14,6 +14,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.chat_history import add_to_chat_history as add_history_util
 from utils.gemma_provider import call_gemma
 from utils.chat_history import extract_json_from_response, add_message_and_update_summary
+from state import WorkflowState
 
 logger = logging.getLogger(__name__)
 
@@ -108,53 +109,6 @@ system_prompt = f"""
         }}
         """.strip()
 
-
-# State schema
-class WorkflowState(TypedDict):
-    user_input: str
-    assistant_response: str
-    important_data: Dict[str, Any]
-    current_process: str
-    in_process: str
-    chat_summary: str
-    chat_history: List[Dict[str, Any]]
-    error : str
-    json_output: Dict[str, Any]
-
-
-async def greeting(state: WorkflowState):
-    """
-    Oturum başında kullanıcıya sıcak bir karşılama mesajı üretir.
-    """
-
-    state["current_process"] = "greeting"
-
-    prompt = f"""
-        Sohbet geçmişi:
-        {state.get("chat_summary", "")}
-
-        Sen Kermits isimli telekom şirketinin, müşteri hizmetleri asistanısın.
-        Kullanıcıya sıcak, samimi ama kısa bir hoş geldin mesajı ver.
-        Sorunun ne olduğunu sormayı unutma.
-
-        YANIT FORMATINI sadece JSON olarak ver:
-        {{
-        "response": "Karşılama mesajı burada",
-        }}
-        """
-
-    response = await call_gemma(prompt=prompt, temperature=0.5)
-
-    data = extract_json_from_response(response)
-
-    state["assistant_response"] = data.get("response", "").strip()
-
-    print("Asistan:", state["assistant_response"])
-
-    await add_message_and_update_summary(state, role="asistan", message=state["assistant_response"])
-
-    return state
-
 async def fallback_user_request(state: WorkflowState) -> dict:
     """
     Kullanıcının talebini yeniden analiz edip doğru formatta çıktı üretilmesini sağlar.
@@ -214,60 +168,8 @@ async def classify_user_request(state: WorkflowState) -> dict:
         if fallback_result == {} or fallback_result.get("tool", "") not in AVAILABLE_TOOL_GROUPS.keys():
             state["error"] = "JSON_format_error"
     else:
-        state["json_output"] = data
-        
+        state["json_output"] = data    
 
-    if data.get("tool", "") in ["no_tool", "end_session_validation", "end_session"]:
-        state["assistant_response"] = data.get("response", "")
-        await add_message_and_update_summary(state, role="asistan", message=state["assistant_response"])
+    state["assistant_response"] = data.get("response", "").strip()
 
     return state
-
-
-workflow = StateGraph(WorkflowState)
-
-workflow.add_node("greeting", greeting)
-workflow.add_node("classify", classify_user_request)
-workflow.add_node("fallback", fallback_user_request)
-
-workflow.add_edge(START, "greeting")
-workflow.add_edge("greeting", "classify")
-workflow.add_edge("classify", END)
-
-graph = workflow.compile()
-
-async def interactive_session():
-    state = {
-        "user_input" : "",
-        "assistant_response" : "",
-        "important_data" : {},
-        "current_process" : "",
-        "in_process" : "",
-        "chat_summary" : "",
-        "chat_history" : [],
-        "error" : "",
-        "json_output" : {}
-    }
-    
-    state = await graph.ainvoke(state)
-
-    while True:
-        
-        user_input = input("Kullanıcı talebini gir (çıkış için 'çıkış' yaz): ").strip()
-        if user_input.lower() == "çıkış":
-            print("Oturum sonlandırıldı.")
-            break
-
-        state["user_input"] = user_input
-        await add_message_and_update_summary(state, role="müşteri", message=user_input)
-
-        # Talebi sınıflandır
-        state = await graph.ainvoke(state)
-
-        print("Sınıflandırma sonucu:")
-
-        if state["json_output"].get("tool") == "end_session":
-            break
-
-if __name__ == "__main__":
-    asyncio.run(interactive_session())
