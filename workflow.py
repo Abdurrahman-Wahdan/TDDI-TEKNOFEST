@@ -26,7 +26,7 @@ from langgraph.graph.message import add_messages
 
 # Import our nodes
 from nodes.security import security_check
-from nodes.enhanced_classifier import classify_tool_groups  
+from nodes.enhanced_classifier import classify_user_request
 from nodes.smart_executor import execute_with_smart_agent
 
 # Import utilities
@@ -357,7 +357,7 @@ def create_turkcell_workflow() -> StateGraph:
     workflow.add_node("greeting", greeting_node)
     workflow.add_node("collect_input", collect_user_input)
     workflow.add_node("security", security_check)
-    workflow.add_node("classify", classify_tool_groups)
+    workflow.add_node("classify", classify_user_request)
     workflow.add_node("execute", execute_with_smart_agent)
     workflow.add_node("end", end_conversation)
     

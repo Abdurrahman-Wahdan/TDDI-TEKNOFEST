@@ -1,0 +1,43 @@
+# TDDI-TEKNOFEST Main Project Requirements
+# Core dependencies for the workflow system
+
+# LangChain & LangGraph for workflow orchestration
+langchain>=0.1.0
+langchain-core>=0.1.0
+langchain-community>=0.0.20
+langgraph>=0.0.40
+
+# OpenAI and other LLM providers
+openai>=1.0.0
+langchain-openai>=0.0.8
+
+# Vector stores and embeddings
+faiss-cpu>=1.7.4
+sentence-transformers>=2.2.2
+
+# Data processing
+pandas>=2.0.0
+numpy>=1.21.0
+
+# HTTP requests and API calls
+requests>=2.28.0
+httpx>=0.24.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Logging and utilities
+structlog>=22.0.0
+pydantic>=2.0.0
+
+# Database (if needed)
+sqlite3  # Built into Python
+sqlalchemy>=2.0.0
+
+# Optional: For local LLM support
+# transformers>=4.21.0
+# torch>=2.0.0
+
+# Optional: For advanced features
+# chromadb>=0.4.0
+# pinecone-client>=2.2.0
