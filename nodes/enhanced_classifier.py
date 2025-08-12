@@ -144,6 +144,10 @@ async def classify_user_request(state: WorkflowState) -> dict:
     """
     state["current_process"] = "classify"
     chat_summary = state.get("chat_summary", "")
+
+    state["user_input"] = input("Kullanıcı talebini gir: ").strip()
+    await add_message_and_update_summary(state, role="müşteri", message=state["user_input"])
+    
     system_message = system_prompt
 
     prompt = f"""

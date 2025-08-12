@@ -18,6 +18,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Import utilities
 from utils.gemma_provider import call_gemma
 from utils.chat_history import extract_json_from_response, add_message_and_update_summary
+from state import WorkflowState
 
 # Import MCP tools
 from tools.mcp_tools import (
@@ -413,27 +414,17 @@ TOOL_MAP = {
     "search_faq_knowledge": search_faq_knowledge
 }
 
-# ======================== STATE DEFINITION ========================
-
-class ExecutorState(TypedDict):
-    user_input: str
-    assistant_response: str
-    tool_group: str
-    operation_in_progress: bool
-    customer_id: Optional[int]
-    customer_data: Optional[Dict[str, Any]]
-    chat_history: List[Dict[str, str]]
-    chat_summary: str
-    available_tools: List[Dict[str, Any]]
-    last_tool_result: Optional[Dict[str, Any]]
-    error: str
-
 # ======================== MAIN EXECUTOR WITH SCHEMA AWARENESS ========================
 
-async def execute_operation(state: ExecutorState) -> ExecutorState:
+async def execute_operation(state: WorkflowState) -> WorkflowState:
     """
     LLM chooses tools with exact parameter schema awareness.
     """
+    tool_group = state.get("json_output", {}).get("tool", "")
+
+    print(state.get("json_output", {}))
+    state["tool_group"] = tool_group
+
     user_input = state["user_input"]
     tool_group = state["tool_group"]
     chat_summary = state.get("chat_summary", "")
@@ -511,6 +502,8 @@ async def execute_operation(state: ExecutorState) -> ExecutorState:
         )
         
         decision = extract_json_from_response(response)
+
+        state["json_output"] = decision
         
         if not decision:
             print("❌ LLM JSON parse failed")
@@ -518,14 +511,17 @@ async def execute_operation(state: ExecutorState) -> ExecutorState:
         
         print(f"🧠 LLM Decision: {decision.get('action')} - {decision.get('reasoning', '')[:50]}...")
         
-        return await execute_decision(state, decision)
+        return state
         
     except Exception as e:
         logger.error(f"Executor error: {e}")
         return await handle_error(state, f"Sistem hatası: {str(e)}")
 
-async def execute_tool(state: ExecutorState, decision: Dict[str, Any]) -> ExecutorState:
+async def execute_tool(state: WorkflowState) -> WorkflowState:
     """Execute the selected tool with parameter validation."""
+    
+    decision = state["json_output"]
+    
     tool_name = decision.get("selected_tool")
     tool_params = decision.get("tool_params", {})
     
@@ -573,30 +569,18 @@ async def execute_tool(state: ExecutorState, decision: Dict[str, Any]) -> Execut
 #  respond_to_user, complete_operation, generate_response_from_tool_result, handle_error,
 #  start_execution, continue_execution)
 
-async def execute_decision(state: ExecutorState, decision: Dict[str, Any]) -> ExecutorState:
-    """Execute LLM decision."""
-    action = decision.get("action")
-    
-    if action == "select_tool":
-        return await select_tool(state, decision)
-    elif action == "collect_params":
-        return await collect_params(state, decision)
-    elif action == "execute_tool":
-        return await execute_tool(state, decision)
-    elif action == "no_action":
-        return await respond_to_user(state, decision)
-    elif action == "main_menu":
-        return await back_to_classifier(state, decision)
-    else:
-        return await handle_error(state, f"Bilinmeyen işlem: {action}")
 
-async def select_tool(state: ExecutorState, decision: Dict[str, Any]) -> ExecutorState:
+
+async def select_tool(state: WorkflowState) -> WorkflowState:
     """Tool selected, check what parameters are missing."""
+    
+    decision = state["json_output"]
     selected_tool = decision.get("selected_tool")
     missing_params = decision.get("missing_params", [])
     response_message = decision.get("response_message", "")
     
     state["user_input"] = decision.get("response_message", "")
+    state["selected_tool"] = selected_tool
 
     print(f"🔧 Selected tool: {selected_tool}, missing: {missing_params}")
     
@@ -619,8 +603,9 @@ async def select_tool(state: ExecutorState, decision: Dict[str, Any]) -> Executo
     
     return updated_state
 
-async def collect_params(state: ExecutorState, decision: Dict[str, Any]) -> ExecutorState:
+async def collect_params(state: WorkflowState) -> WorkflowState:
     """Collect parameters from user response."""
+    decision = state["json_output"]
     response_message = decision.get("response_message", "")
     
     updated_state = {
@@ -634,8 +619,9 @@ async def collect_params(state: ExecutorState, decision: Dict[str, Any]) -> Exec
     
     return updated_state
 
-async def respond_to_user(state: ExecutorState, decision: Dict[str, Any]) -> ExecutorState:
+async def respond_to_user(state: WorkflowState) -> WorkflowState:
     """Respond to user without executing tools."""
+    decision = state["json_output"]
     response_message = decision.get("response_message", "")
     
     updated_state = {
@@ -649,8 +635,10 @@ async def respond_to_user(state: ExecutorState, decision: Dict[str, Any]) -> Exe
     
     return updated_state
 
-async def back_to_classifier(state: ExecutorState, decision: Dict[str, Any]) -> ExecutorState:
+async def back_to_classifier(state: WorkflowState) -> WorkflowState:
     """Go back to classifier"""
+
+    decision = state["json_output"].get
     response_message = decision.get("response_message", "")
     
     updated_state = {
@@ -701,7 +689,7 @@ async def generate_response_from_tool_result(tool_name: str, tool_result: Dict[s
     # For other tools, return base message or tool message
     return base_message or tool_result.get("message", "İşlem tamamlandı.")
 
-async def handle_error(state: ExecutorState, error_message: str) -> ExecutorState:
+async def handle_error(state: WorkflowState, error_message: str) -> WorkflowState:
     """Handle errors gracefully."""
     response = f"Özür dilerim, bir sorun oluştu: {error_message}"
     
@@ -719,32 +707,14 @@ async def handle_error(state: ExecutorState, error_message: str) -> ExecutorStat
 
 # ======================== MAIN INTERFACE ========================
 
-async def start_execution(tool_group: str, user_input: str, chat_summary: str = "", customer_id: Optional[int] = None) -> ExecutorState:
+async def start_execution(state: WorkflowState) -> dict:
     """Start execution with proper tool group setup."""
     
-    # Get available tools for this group
-    available_tools = TOOL_GROUPS.get(tool_group, [])
     
-    state = ExecutorState(
-        user_input=user_input,
-        assistant_response="",
-        tool_group=tool_group,
-        operation_in_progress=True,
-        customer_id=customer_id,
-        customer_data=None,
-        chat_history=[],
-        chat_summary=chat_summary,
-        available_tools=[{"name": tool.name, "description": tool.description} for tool in available_tools],
-        last_tool_result=None,
-        error=""
-    )
     
-    print(f"🚀 Starting execution: {tool_group} with {len(available_tools)} tools")
-    
-    await add_message_and_update_summary(state, role="müşteri", message=user_input)
     return await execute_operation(state)
 
-async def continue_execution(state: ExecutorState, user_input: str) -> ExecutorState:
+async def continue_execution(state: WorkflowState, user_input: str) -> WorkflowState:
     """Continue execution with new user input."""
     updated_state = {
         **state,

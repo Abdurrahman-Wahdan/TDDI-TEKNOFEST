@@ -1,9 +1,17 @@
-from typing import TypedDict, Dict, Any, List
+from typing import TypedDict, Dict, Any, List, Optional
 
 class WorkflowState(TypedDict):
     user_input: str
     assistant_response: str
     get_user_input: bool
+    customer_id: str
+    tool_group: str                  # From classifier's json_output.tool
+    operation_in_progress: bool       # Track if operation is ongoing
+    available_tools: List[Dict]       # Tools available for current group
+    selected_tool: str               # Currently selected tool
+    tool_params: Dict[str, Any]      # Collected parameters
+    missing_params: List[str]        # Parameters still needed
+    last_tool_result: Optional[Dict[str, Any]]
     important_data: Dict[str, Any]
     current_process: str
     in_process: str
