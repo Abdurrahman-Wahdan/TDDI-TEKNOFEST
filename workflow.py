@@ -1,5 +1,7 @@
 import asyncio
 from langgraph.graph import StateGraph, START, END
+import os
+from IPython.display import Image, display
 
 from utils.gemma_provider import call_gemma
 from utils.chat_history import extract_json_from_response, add_message_and_update_summary
@@ -62,7 +64,7 @@ async def direct_response(state: WorkflowState):
 async def executer(state: WorkflowState):
     # Burada tool’a göre aksiyon alınır (API çağrısı vs.)
     print("Executer çalışıyor...")
-    return state["current_process"]
+    return state
 
 def route_by_tool(state: WorkflowState) -> str:
     tool = state.get("json_output", {}).get("tool", "")
@@ -112,12 +114,13 @@ workflow.set_entry_point("greeting")
 workflow.add_edge("greeting", "get_user_input")
 
 workflow.add_conditional_edges(
-    "classify",            # Hangi node'dan çıkacak
-    route_by_tool,         # Hangi route fonksiyonu kullanılacak
+    "classify",
+    route_by_tool,
     {
         "direct_response": "direct_response",
         "executer": "executer",
         "fallback": "fallback",
+        END: END,
     }
 )
 
@@ -141,7 +144,6 @@ workflow.add_conditional_edges(
     }
 )
 
-
 workflow.add_conditional_edges(
     "direct_response",
     lambda state: "get_user_input" if state.get("current_process") != "ending" else "ending",
@@ -151,7 +153,10 @@ workflow.add_conditional_edges(
     }
 )
 
+# Workflow’u derledikten sonra:
 graph = workflow.compile()
+
+display(Image(graph.get_graph().draw_png()))
 
 async def interactive_session():
     state = {
