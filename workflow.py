@@ -68,34 +68,36 @@ def route_by_tool(state: WorkflowState) -> str:
     tool = state.get("json_output", {}).get("tool", "")
 
     if tool in ["no_tool", "end_session_validation"]:
-        state["get_user_input"] = True
+        # Asistan önce yanıt versin, sonra kullanıcıdan input alalım
         return "direct_response"
-    
+
     elif tool in ["subscription_tools", "billing_tools", "technical_tools", "registration_tools"]:
-        state["current_process"] = "executer"
-        state["get_user_input"] = False
-    
+        return "executer"
+
     elif tool == "end_session":
         state["current_process"] = "ending"
-        state["get_user_input"] = False
-    
+        return "direct_response"
+
     else:
         if state.get("current_process", "") == "fallback":
             state["current_process"] = "ending"
-            state["get_user_input"] = False
-        
+            return "direct_response"
         else:
             state["current_process"] = "fallback"
-            state["get_user_input"] = False
-
-    return "direct_response"
+            return "fallback"
 
 def route_by_current_process(state: WorkflowState) -> str:
-    
     if state.get("get_user_input", False):
         return "get_user_input"
+    
+    process = state.get("current_process", "")
+    if process in ["classify", "executer", "fallback"]:
+        return process
+    elif process == "ending":
+        return "ending"
     else:
-        return state["current_process"]
+        return "classify"  # default
+
 
 workflow = StateGraph(WorkflowState)
 
@@ -134,17 +136,17 @@ workflow.add_conditional_edges(
     {
         "classify": "classify",
         "executer": "executer",
-        "get_user_input" : "get_user_input"
+        "fallback": "fallback",
+        END: END,
     }
 )
 
+
 workflow.add_conditional_edges(
     "direct_response",
-    route_by_current_process,
+    lambda state: "get_user_input" if state.get("current_process") != "ending" else "ending",
     {
         "get_user_input": "get_user_input",
-        "classify" : "classify",
-        "executer": "executer",
         "ending": END
     }
 )
