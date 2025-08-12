@@ -245,7 +245,7 @@ async def fallback_user_request(state: WorkflowState) -> dict:
         {{
         "reason" : "JSON oluştururken verdiğin kararları kısaca özetle"
         "tool": "Kesinlikle bir tool grubunu seç",
-        "response": "no_tool, end_session_validation, end_session tool'ları kullanılıyorsa cevap yaz | Diğer tüm tool'lar için None",
+        "response": "no_tool, end_session_validation, end_session tool'ları kullanılıyorsa cevap yaz | Diğer tüm tool'lar için null",
         }}
         """.strip()
 
@@ -300,7 +300,7 @@ async def classify_user_request(state: WorkflowState) -> dict:
         {{
         "reason" : "JSON oluştururken verdiğin kararları kısaca özetle"
         "tool": "Kesinlikle bir tool grubunu seç",
-        "response": "no_tool, end_session_validation, end_session tool'ları kullanılıyorsa cevap yaz | Diğer tüm tool'lar için None",
+        "response": "no_tool, end_session_validation, end_session tool'ları kullanılıyorsa cevap yaz | Diğer tüm tool'lar için null",
         }}
         """.strip()
 

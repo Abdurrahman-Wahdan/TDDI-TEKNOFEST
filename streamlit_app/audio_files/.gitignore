@@ -1,0 +1,13 @@
+# Ignore temporary audio files generated during runtime
+*response*.wav
+*gtts_response*.wav
+*classifier_response*.wav
+temp_audio*.wav
+
+# Keep reference files
+!nicesample.wav
+!welcome_message.wav
+
+# README for this directory
+!README.md
+!.gitignore
