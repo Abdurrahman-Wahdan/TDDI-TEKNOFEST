@@ -1,11 +1,19 @@
-
-.env
-.env/*
-.env.*
-
-# Python bytecode cache
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
-.Python
+
+# Environment variables
+.env
+myenv
+
+# Virtual environments
+venv/
+.env/
+
+# Editor folders
+.vscode/
+.idea/
+
+# macOS
+.DS_Store

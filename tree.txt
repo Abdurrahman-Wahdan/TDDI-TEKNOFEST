@@ -1,0 +1,81 @@
+.
+├── README.md
+├── TurkcellState
+├── __init__.py
+├── __pycache__
+│   ├── database.cpython-313.pyc
+│   ├── gemma_provider.cpython-313.pyc
+│   ├── sms_workflow.cpython-313.pyc
+│   ├── state.cpython-313.pyc
+│   └── workflow.cpython-313.pyc
+├── create_table.py
+├── database.py
+├── embeddings
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-313.pyc
+│   │   └── embedding_system.cpython-313.pyc
+│   ├── create_embedding.py
+│   ├── embedding_system.py
+│   ├── faq_data.csv
+│   └── vector_store.py
+├── example_usage.py
+├── mcp
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-313.pyc
+│   │   └── mcp_client.cpython-313.pyc
+│   ├── mcp_client.py
+│   ├── mcp_config.py
+│   └── mcp_example.py
+├── nodes
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-313.pyc
+│   │   ├── auth.cpython-313.pyc
+│   │   ├── base_agent.cpython-313.pyc
+│   │   ├── classifier.cpython-313.pyc
+│   │   ├── classify.cpython-313.pyc
+│   │   ├── faq.cpython-313.pyc
+│   │   ├── operations.cpython-313.pyc
+│   │   ├── security.cpython-313.pyc
+│   │   ├── sms.cpython-313.pyc
+│   │   └── validation.cpython-313.pyc
+│   ├── auth.py
+│   ├── classify.py
+│   ├── faq.py
+│   ├── operations.py
+│   ├── security.py
+│   └── sms.py
+├── services
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-313.pyc
+│   │   ├── auth_service.cpython-313.pyc
+│   │   ├── billing_service.cpython-313.pyc
+│   │   ├── registration_service.cpython-313.pyc
+│   │   ├── subscription_service.cpython-313.pyc
+│   │   └── technical_service.cpython-313.pyc
+│   ├── auth_service.py
+│   ├── billing_service.py
+│   ├── registration_service.py
+│   ├── subscription_service.py
+│   └── technical_service.py
+├── test.py
+├── tools
+│   ├── __init__.py
+│   ├── faq_tools.py
+│   ├── mcp_tools.py
+│   └── sms_tools.py
+├── tree.txt
+├── turkcell_workflow.mmd
+├── turkcell_workflow.png
+├── utils
+│   ├── __pycache__
+│   │   ├── chat_history.cpython-313.pyc
+│   │   └── gemma_provider.cpython-313.pyc
+│   ├── chat_history.py
+│   └── gemma_provider.py
+└── workflow.py
+
+13 directories, 66 files
