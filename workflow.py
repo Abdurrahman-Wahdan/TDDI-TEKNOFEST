@@ -48,7 +48,7 @@ async def get_user_input(state: WorkflowState):
     state["user_input"] = input("Kullanıcı talebini gir: ").strip()
     await add_message_and_update_summary(state, role="müşteri", message=state["user_input"])
 
-    state["get_user_input"] = True
+    state["get_user_input"] = False
 
     return state
 
@@ -69,6 +69,7 @@ def route_by_tool(state: WorkflowState) -> str:
 
     if tool in ["no_tool", "end_session_validation"]:
         state["get_user_input"] = True
+        return "direct_response"
     
     elif tool in ["subscription_tools", "billing_tools", "technical_tools", "registration_tools"]:
         state["current_process"] = "executer"
@@ -133,6 +134,7 @@ workflow.add_conditional_edges(
     {
         "classify": "classify",
         "executer": "executer",
+        "get_user_input" : "get_user_input"
     }
 )
 
