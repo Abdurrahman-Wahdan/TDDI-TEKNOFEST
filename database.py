@@ -26,7 +26,7 @@ class DatabaseConnection:
         port: int = os.getenv("LOCAL_DB_PORT", 5432),  
         database: str = os.getenv("LOCAL_DB_NAME","tddi"),                  
         username: str = os.getenv("LOCAL_DB_USERNAME","tddi"),     
-        password: str = ""                         # ✅ Empty (no password needed)
+        password: str = "1234"                         # ✅ Empty (no password needed)
     ):
         """
         Initialize database connection parameters.
@@ -75,7 +75,7 @@ class DatabaseConnection:
         except Exception as e:
             logger.error(f"Failed to connect to database: {e}")
             return False
-    
+
     def disconnect(self):
         """Close database connection"""
         if self.connection:
