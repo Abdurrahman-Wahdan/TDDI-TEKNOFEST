@@ -163,8 +163,8 @@ async def add_message_and_update_summary(
     role: str,
     message: str,
     summary_key: str = "chat_summary",
-    batch_size: int = 10,
-    tail_size: int = 4,  # Özet sonrası eklenecek son ham mesaj sayısı
+    batch_size: int = 12,
+    tail_size: int = 6,  # Özet sonrası eklenecek son ham mesaj sayısı
 ) -> None:
     """
     Mesajı chat_history'ye ekler,

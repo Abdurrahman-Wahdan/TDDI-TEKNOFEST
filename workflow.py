@@ -42,15 +42,15 @@ async def greeting(state: WorkflowState):
 
 async def direct_response(state: WorkflowState):
     
-    if state["assistant_response"] != "":
+    if state["assistant_response"] != None:
         print("Asistan:", state["assistant_response"])
         await add_message_and_update_summary(state, role="asistan", message=state["assistant_response"])
-        state["last_assistant_response"] = state["assistant_response"]
+        state["assistant_response"] = None
 
-    if state["required_user_input"] == "True":
+    if state["required_user_input"] == True:
         state["user_input"] = input("Kullanıcı talebini gir: ").strip()
         await add_message_and_update_summary(state, role="müşteri", message=state["user_input"])
-        state["required_user_input"] = "False"
+        state["required_user_input"] = False
 
     return state
 
@@ -139,8 +139,9 @@ graph = workflow.compile()
 async def interactive_session():
     state = {
         "user_input": "",
-        "assistant_response": "",
+        "assistant_response": None,
         "required_user_input": True,
+        "agent_message": "",
         "last_assistant_response": "",
         "customer_id": "",
         "tool_group": "",
@@ -156,7 +157,7 @@ async def interactive_session():
         "chat_history": [],
         "error": "",
         "json_output": {},
-        "last_mcp_output": "",
+        "last_mcp_output": {},
         "current_tool": "",
         "current_category": ""
     }

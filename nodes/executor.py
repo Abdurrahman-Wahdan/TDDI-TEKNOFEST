@@ -47,11 +47,11 @@ logger = logging.getLogger(__name__)
 SUBSCRIPTION_TOOLS = {
     "authenticate_customer": {
         "name": "authenticate_customer",
-        "description": "Müşteri kimlik doğrulaması yapar",
+        "description": "Müşteri kimlik doğrulaması yapar.",
         "parameters": {
             "tc_kimlik_no": {
                 "type": "string",
-                "description": "11 haneli TC kimlik numarası",
+                "description": "11 haneli TC kimlik numarası.",
                 "required": True,
                 "example": "12345678901"
             }
@@ -59,59 +59,60 @@ SUBSCRIPTION_TOOLS = {
     },
     "get_customer_active_plans": {
         "name": "get_customer_active_plans",
-        "description": "Müşterinin aktif paketlerini getirir ve detaylarını sunar",
+        "description": "Müşterinin aktif paketlerini getirir.",
         "parameters": {
             "customer_id": {
                 "type": "integer",
-                "description": "Müşteri ID'si",
+                "description": "Müşteri ID.",
                 "required": True
             }
         }
     },
     "get_available_plans": {
         "name": "get_available_plans",
-        "description": "Şirketin mevcut alınabilecek tüm paketlerini listeler",
+        "description": "Mevcut alınabilecek tüm paketleri listeler.",
         "parameters": {}
     },
     "change_customer_plan": {
         "name": "change_customer_plan",
-        "description": "Müşterinin talep ettiği pakete göre paketini değiştirir",
+        "description": "Müşterinin paketini değiştirir.",
         "parameters": {
             "customer_id": {
                 "type": "integer",
-                "description": "Müşteri ID'si", 
+                "description": "Müşteri ID.",
                 "required": True
             },
             "old_plan_id": {
                 "type": "integer",
-                "description": "Mevcut paket ID'si",
+                "description": "Mevcut paket ID.",
                 "required": True
             },
             "new_plan_id": {
-                "type": "integer", 
-                "description": "Yeni paket ID'si",
+                "type": "integer",
+                "description": "Yeni paket ID.",
                 "required": True
             }
         }
     },
     "search_faq_knowledge": {
         "name": "search_faq_knowledge",
-        "description": "Sık sorulan sorular veritabanında arama yapar",
+        "description": "Sık sorulan sorularda arama yapar.",
         "parameters": {
             "question": {
                 "type": "string",
-                "description": "Aranacak soru",
+                "description": "Aranacak soru.",
                 "required": True
             },
             "top_k": {
                 "type": "integer",
-                "description": "Kaç sonuç getirileceği",
+                "description": "Kaç sonuç getirileceği.",
                 "required": False,
                 "default": 3
             }
         }
     }
 }
+
 
 # ======================== JSON SERIALIZATION FIX ========================
 
@@ -195,55 +196,54 @@ async def execute_operation(state: WorkflowState) -> WorkflowState:
     
     # Enhanced LLM system prompt with schema awareness
     system_message = f"""
-        
-        {tool_group} kategorisi için MEVCUT ARAÇLAR
+        {tool_group} kategorisi için MEVCUT ARAÇLAR:
         {SUBSCRIPTION_TOOLS}
 
-        KATEGORİ KURALLARI:
-        - Konuşma context'ine göre yukarıdaki listede yer alan araçlar arasından en uygun olanı seç.
+        Öncelikli kural: Kullanıcı **önce authenticate edilmeli** (authenticate_customer).
 
-        "selected_tool" için,
-        Yukarıdaki listelerden birini seçmeye çalış. Tool seçemediğin durumlarda "None" seç. Birkaç chat turn'de elindeki tool'lardan hiçbirisini seçemediysen "back_to_previous_agent" seçebilirsin o farklı bir kategori belirler.
+        Talimatlar:
+        - "selected_tool" alanı için:
+        1. Yukarıdaki listelerden uygun bir araç seç.  
+        2. Uygun araç seçemiyorsan "None" seç.  
+        3. Birkaç kez "None" seçtikten sonra farklı kategoriye yönlendirmek için "back_to_previous_agent" seçebilirsin.  
+            - "back_to_previous_agent" seçtiğinde, kullanıcıya önceki menüye yönlendirdiğini belirt.  
+        4. "selected_tool" belirlenmişse, sadece yönlendirme mesajı ver (işlemi sen yapma).  
+        5. "None" seçersen, konuşmaya devam edebilir veya sistemden gelen bilgileri kullanıcıya sunabilirsin.
 
-        Eğer bir selected_tool varsa, o zaman işlemi bir sonraki sistem yapacak. Sen sadece bir sonraki işleme yönlendiricisin, yönlendirme yaparken talep etme bir şey.
-        "back_to_previous_agent" seçersen bir önceki menüye yönlendirdiğini söyle.
-        None seçersen konuşmaya devam et veya sistem tarafından getirilen bilgileri de sunabilirsin.
-        Varsayım yapma, emin olarak ilerle.
+        - Varsayım yapma, yalnızca emin olduğunda ilerle.
+        - Sohbet özetini (chat summary) dikkate al ve mevcut bağlama bağlı kal.
+        - Sadece kullanıcıya doğrudan cevap verilmesi gerektiğinde "response_message" alanını doldur, aksi hâlde "None" yap.
+        - Aynı mesajı gereksiz yere tekrar etme, konuşmayı sürdürmeye çalış.
 
-        Asistanın son mesajından sonra kullanıcıya herhangi bir bilgi verilmedi.
-
-        Sadece kullanıcının mesajına cevap vermen gerektiğine karar verdiğin duruma gelince response_message ver. Onun dışında "" olsun.
-
+        Çıktı formatı:
         {{
-        "reasoning": "Karar açıklaması",
-        "selected_tool": "tool_name | None | back_to_previous_agent", # authenticate_customer öncelikli!
-        "required_user_input": "True | False",  # Bu işlemden sonra kullanıcıdan girdi beklenip beklenmediğini belirtir
-        "response_message": "Kullanıcıya profesyonel mesaj",
+            "selected_tool": "tool_name | None | back_to_previous_agent",  # authenticate_customer öncelikli
+            "response_message": "Profesyonel mesaj (daha önce yazmadıysan) veya None",  # Gerek yoksa "None"
+            "required_user_input": True | False  # Cevap bekleniyorsa True
+            "agent_message": "Bir sonraki agent'a mesajın. Ne yapıldı ve onun ne yapması gerek",
         }}
         """.strip()
     
-    # Context for LLM
     context = f"""
-        Önceki konuşmaların özeti (Bağlamı dikkate al, parametleri içeriyor olabilir):
+        Önceki konuşmaların özeti:
         {chat_summary if chat_summary else 'Özet yok'}
 
         Müşterinin son mesajı:
         {state["user_input"]}
 
-        - Müşteri id: {state.get("customer_id", "Kimlik doğrulanmamış")}
-        - Müşteri kimliği doğrulanmadan başka tool seçme.
+        Önceki agent mesajı:
+        {state["agent_message"]}
 
-        Önemli bilgiler:
-        {json.dumps(state.get('important_data', {}), ensure_ascii=False, indent=2)}
+        En son çağrılan araç: "{state["json_output"].get("selected_tool", "")}"
+        MCP çıktıları: {state["last_mcp_output"]}
 
-        EN son "{state["json_output"].get("selected_tool", "")}" kullanıldı.
+        Müşteri ID: {state.get("customer_id", "Kimlik doğrulanmamış")}
+        Not: Müşteri kimliği doğrulanmadan başka araç seçme.
 
-        Dönen yanıt: {state["last_mcp_output"]}
+        Gerekli bilgiler yukarıda mevcut, tekrar isteme.
+        Çıktıyı mutlaka JSON formatında ver.
+        """.strip()
 
-        gerekli bilgiler burada, tekrar isteme.
-
-        JSON vermeyi unutma.
-    """.strip()
     
     try:
         response = await call_gemma(
@@ -258,12 +258,13 @@ async def execute_operation(state: WorkflowState) -> WorkflowState:
 
         print(state["json_output"])
 
-        state["assistant_response"] = decision.get("response_message", "").strip()
-        state["required_user_input"] = decision.get("required_user_input", "False")
+        state["assistant_response"] = decision.get("response_message", "")
+        state["required_user_input"] = decision.get("required_user_input", False)
+        state["agent_message"] = decision.get("agent_message", "").strip()
 
         state["selected_tool"] = decision.get("selected_tool", "").strip()
 
-        if state.get("json_output", {}).get("selected_tool") == "main_menu":
+        if state.get("json_output", {}).get("selected_tool") == "back_to_previous_agent":
             state["current_process"] = "classifier"
         
         elif state.get("json_output", {}).get("selected_tool") == "None":
@@ -287,54 +288,56 @@ async def tool_agent(state: WorkflowState) -> WorkflowState:
     chat_summary = state.get("chat_summary", "")
     customer_id = state.get("customer_id", "")
     
-    # Enhanced LLM system prompt with schema awareness
     system_message = f"""
-        Şu anki tool: {SUBSCRIPTION_TOOLS.get(state.get("selected_tool"))}
-
-        Diğer farklı tool isimleri: {list(SUBSCRIPTION_TOOLS.keys())}
-
+        Şu anki aktif tool: {SUBSCRIPTION_TOOLS.get(state.get("selected_tool"))}
+        Diğer tool isimleri: {list(SUBSCRIPTION_TOOLS.keys())}
         Müşteri numarası: {customer_id}
-        
-        - Yukarıda verilen şu anki tool için eksik parametreleri tamamla, sonra da tool'u çalıştır.
-        - back_to_previous_agent: Kullanıcının mesajı ile parametre dolduramıyorsan, farklı tool ihtiyacı olduğunu düşünürsen ya da aktif tool'un tamamlandığını düşünüyorsan kullan.
-        - execute_tool demek bir sonraki agent execute yapacak demek, sen daha yapmadın.
-        - Bir işlemden yeni gelindiyse gerekli bilgiler müşteriye verilmemiştir, verebilirsin. Geçmişi takip et. Ama sakın arkaplan bilgileri (tool ismini direkt olduğu gibi) verme.
-        - Bilgiler geldiyse back_to_previous seç ve müşteriyi bilgilerle güncelle.
-        - back_to_previous seçtiysen response "" olacak.
-        - Sohbet geçmişi boş değilse "Merhaba" gibi karşılamalar yapma.
 
-        Sadece kullanıcının mesajına cevap verebileceğin duruma gelince response_message ver. Onun dışında "" olsun.
+        Talimatlar:
+        1. Aktif tool için eksik parametreleri belirle ve tamamla, ardından tool'u çalıştır.
+        2. "back_to_previous_agent" yalnızca şu durumlarda seçilir:
+        - Parametreler doldurulamıyorsa,
+        - Farklı bir tool ihtiyacı varsa,
+        - Aktif tool işlemi tamamlandıysa.
+        3. Eğer işlemden yeni dönüldüyse ve gerekli bilgiler müşteriye verilmediyse, bilgileri sun (ama tool adını doğrudan verme).
+        4. Bilgiler verildiyse "back_to_previous_agent" seç ve müşteriyi güncelle.
+        5. "back_to_previous_agent" seçildiğinde `response_message` boş olmalı.
+        6. Sohbet geçmişi boş değilse karşılamalar ("Merhaba" vb.) yapma.
+        7. "execute_tool" → Sadece yönlendirme yapılır, işlem yapılmaz; bu durumda bilgi verme.
+        8. Sohbet özeti ve bağlama sadık kal, sadece verilen bilgilere göre yanıt üret.
 
+        Yanıt formatı:
         {{
-        "reasoning": "Karar açıklaması",
-        "phase": "collect_missing_parameters | execute_tool | back_to_previous_agent", #Yalnızca bu üçü
-        "missing_parameters": ["param1", "param2"], # Yalnızca eksik parametreler varsa doldur. Yoksa None
-        "known_parameters": {{"param1": "value", "param2": "value2"}}, # Tool için temin edilmiş parametreler
-        "required_user_input": "True | False",  # İşlem bitmediyse input bekleme, input almaya ihtiyaç oldu zamanda öreneği tc kimlik istemek paket seçmek tarzı işlemlerde input alman gerekir
-        "response_message": "Kullanıcıya sistemden gelen bilgilerle beraber profesyonel mesaj",
+            "phase": "collect_missing_parameters | execute_tool | back_to_previous_agent",  # Sadece bu üç değer
+            "missing_parameters": ["param1", "param2"] or None,  # Eksik parametre yoksa None
+            "known_parameters": {{"param1": "value", "param2": "value2"}},  # Temin edilmiş parametreler
+            "response_message": "Profesyonel mesaj (daha önce yazmadıysan) veya None",  # Gereksiz tekrar yok
+            "required_user_input": True | False  # Yanıt bekleniyorsa True,
+            "agent_message": "Bir sonraki agent'a mesajın. Ne yapıldı ve onun ne yapması gerek",
         }}
         """.strip()
+
     
-    # Context for LLM
     context = f"""
-        Önceki konuşmaların özeti (Bağlamı dikkate al, parametleri içeriyor olabilir):
+        Önceki konuşmaların özeti:
         {chat_summary if chat_summary else 'Özet yok'}
 
         Müşterinin son mesajı:
         {state["user_input"]}
 
-        - Müşteri id: {state.get("customer_id", "Kimlik doğrulanmamış")} --> bunu kullan işlermleri gerçekleştirmek  için.
-        - Müşteri kimliği doğrulanmadan başka tool seçme.
+        Önceki agent mesajı:
+        {state["agent_message"]}
 
-        Önemli bilgiler:
-        {json.dumps(state.get('important_data', {}), ensure_ascii=False, indent=2)}
+        Son çağrılan tool: "{state["json_output"].get("selected_tool", "")}"
+        API yanıtı: {state["last_mcp_output"]}
 
-        EN son "{state["json_output"].get("selected_tool", "")}" çağırıldı.
+        Müşteri ID: {state.get("customer_id", "Kimlik doğrulanmamış")}  
+        Not: Müşteri kimliği doğrulanmadan başka tool seçme.
 
-        Dönen yanıt: {state["last_mcp_output"]}
+        Gerekli bilgiler mevcutsa tekrar isteme.  
+        Yanıt mutlaka JSON formatında olmalı.
+        """.strip()
 
-        JSON vermeyi unutma.
-    """.strip()
     
     try:
         response = await call_gemma(
@@ -349,8 +352,9 @@ async def tool_agent(state: WorkflowState) -> WorkflowState:
 
         print(state["json_output"])
 
-        state["assistant_response"] = decision.get("response_message", "").strip()
-        state["required_user_input"] = decision.get("required_user_input", "False")
+        state["assistant_response"] = decision.get("response_message", "")
+        state["required_user_input"] = decision.get("required_user_input", False)
+        state["agent_message"] = decision.get("agent_message", "").strip()
 
         if decision.get("phase") == "back_to_previous_agent":
             state["current_process"] = "executer"
@@ -369,21 +373,20 @@ async def tool_processing(state: WorkflowState) -> WorkflowState:
 
     params = json_output["known_parameters"]
 
-
     if state["current_tool"] == "authenticate_customer":
         mcp_response = authenticate_customer.invoke({"params": params})
-        state["last_mcp_output"] = mcp_response
+        state["last_mcp_output"]["authenticate_customer"] = mcp_response
         state["customer_id"] = mcp_response.get("customer_id", "")
         state["current_process"] = "executer"
         
     if state["current_tool"] == "get_customer_active_plans":
         mcp_response = get_customer_active_plans.invoke({"params": params})
-        state["last_mcp_output"] = mcp_response
+        state["last_mcp_output"]["get_customer_active_plans"] = mcp_response
         state["current_process"] = "executer"
 
     if state["current_tool"] == "get_available_plans":
         mcp_response = get_available_plans.invoke({})
-        state["last_mcp_output"] = mcp_response
+        state["last_mcp_output"]["get_available_plans"] = mcp_response
         state["current_process"] = "executer"
         
     return state

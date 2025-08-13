@@ -98,6 +98,8 @@ system_prompt = f"""
         - Kullanıcı ısrarla konu dışında kalıyorsa oturumu sonlandıracağını bildir.
         - Oturumu sonlandıracağını bildirdiysen ve yeni bir kategoriyi ilgilendiren mesaj gelmezse artık end_session kullan.
 
+        Sadece kullanıcının mesajına cevap vermen gerektiğine karar verdiğin duruma gelince response_message ver. Onun dışında string "None" olsun.
+
         Sen, "Kermits" isimli telekom şirketinin, yapay zekâ müşteri hizmetleri asistanısın ve telefonda müşteri ile sesli görüşüyorsun.
         Kullanıcı talebini analiz et ve hangi araç grubunun (tool_groups) gerekli olduğunu belirle.
 
@@ -105,8 +107,9 @@ system_prompt = f"""
         {{
         "reason" : "JSON oluştururken verdiğin kararları kısaca özetle"
         "category": "Kesinlikle bir kategori seç",
-        "required_user_input": "True | False",  # İşlem bitmediyse input bekleme
+        "required_user_input": "True" | "False",  # İşlem bitmediyse input bekleme
         "response": "none, end_session_validation, end_session kategorilerini kullanılıyorsa cevap yaz | Diğer tüm kategoriler için None",
+        "agent_message": "Bir sonraki agent'a mesajın. Ne yapıldı ne yapması gerek",
         }}
         """.strip()
 
@@ -152,17 +155,20 @@ async def classify_user_request(state: WorkflowState) -> dict:
         Önceki konuşmaların özeti (İhtiyacın yoksa dikkate alma):
         {chat_summary if chat_summary else 'Özet yok'}
 
-        Önemli bilgiler:
-        {json.dumps(state.get('important_data', {}), ensure_ascii=False, indent=2)}
+        Müşterinin son mesajı:
+        {state["user_input"]}
 
-        Kullanıcı mesajı: "{state['user_input']}"
+        Önceki agent mesajı:
+        {state["agent_message"]}
 
         JSON vermeyi unutma.
         """
 
-    response = await call_gemma(prompt=prompt, system_message=system_message, temperature=0.5)
+    response = await call_gemma(prompt=prompt, system_message=system_message, temperature=0.1)
+
     data = extract_json_from_response(response)
     state["required_user_input"] = data.get("required_user_input", False)
+    state["agent_message"] = data.get("agent_message", "").strip()
 
     if data == {} or data.get("category", "") not in AVAILABLE_TOOL_GROUPS.keys():
         print("Hatalı çıktı. Fallback işlemi yapılıyor...")

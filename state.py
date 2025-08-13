@@ -6,6 +6,7 @@ class WorkflowState(TypedDict):
     last_assistant_response: str
     required_user_input: str
     required_response: bool
+    agent_message: str
     customer_id: str
     tool_group: str                  # From classifier's json_output.tool
     operation_in_progress: bool       # Track if operation is ongoing
@@ -20,6 +21,6 @@ class WorkflowState(TypedDict):
     chat_history: List[Dict[str, Any]]
     error : str
     json_output: Dict[str, Any]
-    last_mcp_output: str
+    last_mcp_output: Dict[str, Any]
     current_tool: str
     current_category: str
