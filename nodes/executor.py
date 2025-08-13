@@ -265,7 +265,7 @@ async def execute_operation(state: WorkflowState) -> WorkflowState:
         state["selected_tool"] = decision.get("selected_tool", "").strip()
 
         if state.get("json_output", {}).get("selected_tool") == "back_to_previous_agent":
-            state["current_process"] = "classifier"
+            state["current_process"] = "classify"
         
         elif state.get("json_output", {}).get("selected_tool") == "None":
             state["current_process"] = "executer"

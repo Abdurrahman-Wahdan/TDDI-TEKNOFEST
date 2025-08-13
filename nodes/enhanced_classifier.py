@@ -107,7 +107,7 @@ system_prompt = f"""
         {{
         "reason" : "JSON oluştururken verdiğin kararları kısaca özetle"
         "category": "Kesinlikle bir kategori seç",
-        "required_user_input": "True" | "False",  # İşlem bitmediyse input bekleme
+        "required_user_input": True | False,  # İşlem bitmediyse input bekleme
         "response": "none, end_session_validation, end_session kategorilerini kullanılıyorsa cevap yaz | Diğer tüm kategoriler için None",
         "agent_message": "Bir sonraki agent'a mesajın. Ne yapıldı ne yapması gerek",
         }}
@@ -167,6 +167,7 @@ async def classify_user_request(state: WorkflowState) -> dict:
     response = await call_gemma(prompt=prompt, system_message=system_message, temperature=0.1)
 
     data = extract_json_from_response(response)
+    print(data)
     state["required_user_input"] = data.get("required_user_input", False)
     state["agent_message"] = data.get("agent_message", "").strip()
 
