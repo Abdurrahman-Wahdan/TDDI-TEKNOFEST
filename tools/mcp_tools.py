@@ -323,7 +323,7 @@ async def search_faq_knowledge(question: str, top_k: int = 3) -> Dict[str, Any]:
 # ======================== AUTHENTICATION TOOLS ========================
 
 @tool
-def authenticate_customer(tc_kimlik_no: str) -> Dict[str, Any]:
+def authenticate_customer(params: Dict[str, Any]) -> Dict[str, Any]:
     """
     Authenticate customer by TC kimlik number.
     
@@ -341,6 +341,8 @@ def authenticate_customer(tc_kimlik_no: str) -> Dict[str, Any]:
     Returns:
         Dict with success, customer_id, customer_data, message
     """
+
+    tc_kimlik_no = params.get("tc_kimlik_no", "").strip()
     try:
         result = mcp_client.authenticate_customer(tc_kimlik_no)
         logger.info(f"Authentication attempt for TC: {tc_kimlik_no[:3]}***")
@@ -359,7 +361,7 @@ def authenticate_customer(tc_kimlik_no: str) -> Dict[str, Any]:
 # ======================== SUBSCRIPTION TOOLS ========================
 
 @tool
-def get_customer_active_plans(customer_id: int) -> Dict[str, Any]:
+def get_customer_active_plans(params: Dict[str, Any]) -> Dict[str, Any]:
     """
     Get customer's currently active subscription plans.
     
@@ -372,6 +374,8 @@ def get_customer_active_plans(customer_id: int) -> Dict[str, Any]:
     Returns:
         Dict with success, plans list, count, message
     """
+
+    customer_id = params.get("customer_id")
     try:
         result = mcp_client.get_customer_active_plans(customer_id)
         logger.info(f"Retrieved active plans for customer {customer_id}")
@@ -763,19 +767,16 @@ def register_new_customer(tc_kimlik_no: str, first_name: str, last_name: str, ph
 # Tool groups for the enhanced classifier
 TOOL_GROUPS = {
 
-    "subscription_tools": [
+    "subscription": [
         get_customer_active_plans,
         get_available_plans,
-        get_customer_subscription_info,
         change_customer_plan,
         authenticate_customer,
-        check_tc_kimlik_exists,
-        format_content_for_sms,
         send_sms_message,
         search_faq_knowledge,
     ],
     
-    "billing_tools": [
+    "billing": [
         get_customer_bills,
         get_unpaid_bills,
         get_billing_summary,
@@ -787,7 +788,7 @@ TOOL_GROUPS = {
         search_faq_knowledge,
     ],
     
-    "technical_tools": [
+    "technical": [
         get_customer_active_appointment,
         get_available_appointment_slots,
         create_appointment,
@@ -799,7 +800,7 @@ TOOL_GROUPS = {
         search_faq_knowledge,
     ],
     
-    "registration_tools": [
+    "registration": [
         register_new_customer,
         authenticate_customer,
         check_tc_kimlik_exists,

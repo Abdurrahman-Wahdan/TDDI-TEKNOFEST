@@ -216,7 +216,7 @@ async def summarize_chat_history(messages: List[Dict[str, Any]]) -> str:
     chat_text = "\n".join([f"{m['role']}: {m['message']}" for m in messages])
 
     summary_prompt = f"""
-        Aşağıdaki müşteri ve asistan mesajlarını kısa ve öz şekilde özetle:
+        Aşağıdaki müşteri ve asistan mesajlarını kısa ve öz şekilde özetle ve işlem için önemli bilgileri listele:
 
         {chat_text}
 

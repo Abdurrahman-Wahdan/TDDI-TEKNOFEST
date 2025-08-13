@@ -5,7 +5,7 @@ from utils.gemma_provider import call_gemma
 from utils.chat_history import extract_json_from_response, add_message_and_update_summary
 from state import WorkflowState
 from nodes.enhanced_classifier import classify_user_request, fallback_user_request
-from nodes.executor import execute_operation, select_tool, collect_params, execute_tool
+from nodes.executor import execute_operation, tool_agent, tool_processing
 
 async def greeting(state: WorkflowState):
     """
@@ -36,18 +36,21 @@ async def greeting(state: WorkflowState):
 
     state["assistant_response"] = data.get("response", "").strip()
 
-    print("Asistan:", state["assistant_response"])
-
-    await add_message_and_update_summary(state, role="asistan", message=state["assistant_response"])
-
     state["current_process"] = "classify"
 
     return state
 
 async def direct_response(state: WorkflowState):
     
-    print("Asistan:", state["assistant_response"])
-    await add_message_and_update_summary(state, role="asistan", message=state["assistant_response"])
+    if state["assistant_response"] != "":
+        print("Asistan:", state["assistant_response"])
+        await add_message_and_update_summary(state, role="asistan", message=state["assistant_response"])
+        state["last_assistant_response"] = state["assistant_response"]
+
+    if state["required_user_input"] == "True":
+        state["user_input"] = input("Kullanıcı talebini gir: ").strip()
+        await add_message_and_update_summary(state, role="müşteri", message=state["user_input"])
+        state["required_user_input"] = "False"
 
     return state
 
@@ -57,17 +60,15 @@ async def executer(state: WorkflowState):
     return state
 
 def route_by_tool_classifier(state: WorkflowState) -> str:
-    tool = state.get("json_output", {}).get("tool", "")
+    category = state.get("json_output", {}).get("category", "")
 
-    if tool in ["no_tool", "end_session_validation"]:
+    if category in ["none", "end_session_validation"]:
         return "direct_response"   # Asistan doğrudan cevap verecek
-    elif tool in ["subscription_tools", "billing_tools", "technical_tools", "registration_tools"]:
-        state["tool_group"] = tool
-        state["current_process"] = "executer"
+    elif category in ["subscription", "billing", "technical", "registration"]:
         return "executer"
-    elif tool == "end_session":
+    elif category == "end_session":
         return "end"
-    elif tool == "fallback":
+    elif category == "fallback":
         if state.get("current_process", "") == "fallback":
             return "end"
         else:
@@ -75,22 +76,11 @@ def route_by_tool_classifier(state: WorkflowState) -> str:
         
 async def execute_decision(state: WorkflowState) -> str:
     """Execute LLM decision."""
-    
-    decision = state["json_output"]
-    
-    action = decision.get("action")
-    
-    if action == "select_tool":
-        return "select_tool"
-    elif action == "collect_params":
-        return "collect_params"
-    elif action == "execute_tool":
-        return "execute_tool"
-    elif action == "no_action":
-        return "executer"
-    elif action == "main_menu":
-        state["current_process"] = "classifier"
-        return "classifier"
+
+    if state.get("current_process") == "tool_agent":
+        return "tool_agent"
+
+    return "direct_response"
 
 def route_by_current_process(state: WorkflowState) -> str:
     
@@ -101,38 +91,25 @@ workflow = StateGraph(WorkflowState)
 workflow.add_node("greeting", greeting)
 workflow.add_node("classify", classify_user_request)
 workflow.add_node("executer", execute_operation)
-workflow.add_node("select_tool", select_tool)
-workflow.add_node("collect_params", collect_params)
-workflow.add_node("execute_tool", execute_tool)
+workflow.add_node("tool_agent", tool_agent)
+workflow.add_node("tool_processing", tool_processing)
 workflow.add_node("fallback", fallback_user_request)
 workflow.add_node("direct_response", direct_response)
 
 workflow.set_entry_point("greeting")
-workflow.add_edge("greeting", "classify")
+workflow.add_edge("greeting", "direct_response")
+workflow.add_edge("executer", "direct_response")
+workflow.add_edge("tool_agent", "direct_response")
+workflow.add_edge("tool_processing", "direct_response")
 
 workflow.add_conditional_edges(
     "classify",            # Hangi node'dan çıkacak
     route_by_tool_classifier,         # Hangi route fonksiyonu kullanılacak
     {
         "direct_response": "direct_response",
-        "collect_params": "collect_params",
-        "execute_tool": "execute_tool",
         "executer": "executer",
         "fallback": "fallback",
         "end" : END,
-    }
-)
-
-workflow.add_conditional_edges(
-    "executer",
-    execute_decision,  # executer.py'deki execute_decision kullanılacak
-    {
-        "select_tool": "select_tool",
-        "collect_params": "collect_params",
-        "execute_tool": "execute_tool",
-        "no_action": "direct_response",
-        "main_menu": "classify",
-        "end": END,
     }
 )
 
@@ -142,6 +119,8 @@ workflow.add_conditional_edges(
     {
         "classify": "classify",
         "executer": "executer",
+        "tool_agent": "tool_agent",
+        "tool_processing": "tool_processing"
     }
 )
 
@@ -155,49 +134,31 @@ workflow.add_conditional_edges(
     }
 )
 
-workflow.add_conditional_edges(
-    "select_tool",
-    lambda state: "collect_params" if state.get("selected_tool_requires_params") else "execute_tool",
-    {
-        "collect_params": "collect_params",
-        "execute_tool": "execute_tool"
-    }
-)
-
-# collect_params sonrası yönlendirme
-workflow.add_conditional_edges(
-    "collect_params",
-    lambda state: "collect_params" if not state.all_params_collected else "execute_tool",
-    {
-        "collect_params": "collect_params",
-        "execute_tool": "execute_tool"
-    }
-)
-
-# execute_tool sonrası yönlendirme
-workflow.add_conditional_edges(
-    "execute_tool",
-    execute_decision,  # executer.py içinden
-    {
-        "main_menu": "classify",
-        "direct_response": "direct_response",
-        "end": END
-    }
-)
-
 graph = workflow.compile()
 
 async def interactive_session():
     state = {
-        "user_input" : "",
-        "assistant_response" : "",
-        "important_data" : {},
-        "current_process" : "",
-        "in_process" : "",
-        "chat_summary" : "",
-        "chat_history" : [],
-        "error" : "",
-        "json_output" : {},
+        "user_input": "",
+        "assistant_response": "",
+        "required_user_input": True,
+        "last_assistant_response": "",
+        "customer_id": "",
+        "tool_group": "",
+        "operation_in_progress": False,
+        "available_tools": [],
+        "selected_tool": "",
+        "tool_params": {},
+        "missing_params": [],
+        "important_data": {},
+        "current_process": "",
+        "in_process": "",
+        "chat_summary": "",
+        "chat_history": [],
+        "error": "",
+        "json_output": {},
+        "last_mcp_output": "",
+        "current_tool": "",
+        "current_category": ""
     }
     
     state = await graph.ainvoke(state)
