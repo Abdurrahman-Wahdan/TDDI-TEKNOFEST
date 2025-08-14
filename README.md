@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-# TDD--TEKNOFEST
-=======
 # Kermits - TDDI 2025 - Customer Service AI Agent
 
 ![TDDI Architecture](assets/tddi-architecture.png)
