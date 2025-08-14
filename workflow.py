@@ -1,4 +1,5 @@
 import asyncio
+import json
 from langgraph.graph import StateGraph, START, END
 
 from utils.gemma_provider import call_gemma
@@ -23,18 +24,20 @@ async def greeting(state: WorkflowState):
         Sorunun ne olduğunu sormayı unutma.
 
         YANIT FORMATINI sadece JSON olarak ver:
+        ```json
         {{
         "response": "Karşılama mesajı burada",
         }}
+        ```
         """
 
     response = await call_gemma(prompt=prompt, temperature=0.5)
-
-    data = extract_json_from_response(response)
+    print(response)
+    data = extract_json_from_response(response.strip())
 
     state["json_output"] = data
 
-    state["assistant_response"] = data.get("response", "").strip()
+    state["assistant_response"] = data.get("response", "")
 
     state["current_process"] = "classify"
 
@@ -47,10 +50,10 @@ async def direct_response(state: WorkflowState):
         await add_message_and_update_summary(state, role="asistan", message=state["assistant_response"])
         state["assistant_response"] = None
 
-    if state["required_user_input"] == True:
+    if state["required_user_input"] == "true":
         state["user_input"] = input("Kullanıcı talebini gir: ").strip()
         await add_message_and_update_summary(state, role="müşteri", message=state["user_input"])
-        state["required_user_input"] = False
+        state["required_user_input"] = "false"
 
     return state
 
@@ -140,7 +143,7 @@ async def interactive_session():
     state = {
         "user_input": "",
         "assistant_response": None,
-        "required_user_input": True,
+        "required_user_input": "true",
         "agent_message": "",
         "last_assistant_response": "",
         "customer_id": "",

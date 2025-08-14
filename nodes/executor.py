@@ -201,26 +201,23 @@ async def execute_operation(state: WorkflowState) -> WorkflowState:
 
         Öncelikli kural: Kullanıcı **önce authenticate edilmeli** (authenticate_customer).
 
-        Talimatlar:
-        - "selected_tool" alanı için:
-        1. Yukarıdaki listelerden uygun bir araç seç.  
-        2. Uygun araç seçemiyorsan "None" seç.  
-        3. Birkaç kez "None" seçtikten sonra farklı kategoriye yönlendirmek için "back_to_previous_agent" seçebilirsin.  
-            - "back_to_previous_agent" seçtiğinde, kullanıcıya önceki menüye yönlendirdiğini belirt.  
-        4. "selected_tool" belirlenmişse, sadece yönlendirme mesajı ver (işlemi sen yapma).  
-        5. "None" seçersen, konuşmaya devam edebilir veya sistemden gelen bilgileri kullanıcıya sunabilirsin.
+        "selected_tool": "tool_name" -> Bir tool seçebilirsen (en son seçilen tool olmasın)
+        "selected_tool": None -> Bir tool seçemezsen mesela soruna cevap bekliyorsan
+        "selected_tool": "back_to_previous_agent" -> Bir arka agent'a dönebilirsin. Kategori seçen agent bulunuyor..
 
-        - Varsayım yapma, yalnızca emin olduğunda ilerle.
-        - Sohbet özetini (chat summary) dikkate al ve mevcut bağlama bağlı kal.
-        - Sadece kullanıcıya doğrudan cevap verilmesi gerektiğinde "response_message" alanını doldur, aksi hâlde "None" yap.
-        - Aynı mesajı gereksiz yere tekrar etme, konuşmayı sürdürmeye çalış.
-        - response_message oluştururken mesaj özetlerine bak ve aynı mesajı yazma.
+        "response_message": "Profesyonel mesaj (daha önce yazmadıysan)" -> İşlemle ilgili son mesajın yeterli olmazsa buradan yeni mesaj yaz.
+        "response_message": None (Python None) -> Herhangi bir mesaj vermeye gerek yok.
+
+        "required_user_input": "true" -> Kullanıcıdan cevap almak gerekirse
+        "required_user_input": "false" -> Kullanıcıdan cevap almaya gerek yoksa
+
+        "agent_message": "Bir sonraki agent'a mesajın. Ne yapıldı ve onun ne yapması gerek"
 
         Çıktı formatı:
         {{
-            "selected_tool": "tool_name | None | back_to_previous_agent",  # authenticate_customer öncelikli
-            "response_message": "Profesyonel mesaj (daha önce yazmadıysan)" | None,  # Gerek yoksa "None"
-            "required_user_input": True | False  # Cevap bekleniyorsa True
+            "selected_tool": "tool_name | None (Python None) | "back_to_previous_agent",
+            "response_message": "Profesyonel mesaj (daha önce yazmadıysan)" | None,
+            "required_user_input": "true" | "false",
             "agent_message": "Bir sonraki agent'a mesajın. Ne yapıldı ve onun ne yapması gerek",
         }}
         """.strip()
@@ -242,7 +239,7 @@ async def execute_operation(state: WorkflowState) -> WorkflowState:
         Not: Müşteri kimliği doğrulanmadan başka araç seçme.
 
         Gerekli bilgiler yukarıda mevcut, tekrar isteme.
-        Çıktıyı mutlaka JSON formatında ver.
+        Çıktıyı mutlaka Dict formatında ver.
         """.strip()
 
     
@@ -252,7 +249,7 @@ async def execute_operation(state: WorkflowState) -> WorkflowState:
             system_message=system_message,
             temperature=0.5  # Lower temperature for more precise parameter generation
         )
-        
+
         decision = extract_json_from_response(response)
 
         state["json_output"] = decision
@@ -263,7 +260,7 @@ async def execute_operation(state: WorkflowState) -> WorkflowState:
         state["required_user_input"] = decision.get("required_user_input", False)
         state["agent_message"] = decision.get("agent_message", "").strip()
 
-        state["selected_tool"] = decision.get("selected_tool", "").strip()
+        state["selected_tool"] = decision.get("selected_tool", "")
 
         if state.get("json_output", {}).get("selected_tool") == "back_to_previous_agent":
             state["current_process"] = "classify"
@@ -294,28 +291,30 @@ async def tool_agent(state: WorkflowState) -> WorkflowState:
         Diğer tool isimleri: {list(SUBSCRIPTION_TOOLS.keys())}
         Müşteri numarası: {customer_id}
 
-        Talimatlar:
-        1. Aktif tool için eksik parametreleri belirle ve tamamlamaya çalış continue ile, ardından tool'u çalıştır.
-        2. "back_to_previous_agent" yalnızca şu durumlarda seçilir:
-        - Parametreler doldurulamıyorsa,
-        - Diğer tool'lara ihtiyaç varsa,
-        - Aktif tool işlemi tamamlandıysa.
-        3. Eğer işlemden yeni dönüldüyse ve gerekli bilgiler müşteriye verilmediyse, bilgileri sun (ama tool adını doğrudan verme).
-        6. Sohbet geçmişi boş değilse karşılamalar ("Merhaba" vb.) yapma.
-        - "execute_tool" → yalnızca tüm parametreler alındığında çağrılır ancak.
-        - Konuşmayı sürdürmeye çalış.
-        - continue seçerek konuşmayı sürdürebilirsin.
-        - Tüm parametreler elinde değilse kesinlikle execute_tool yapma, gerekirse önceki agent'a git.
-        - response_message oluştururken mesaj özetlerine bak ve aynı mesajı yazma.
-        - response_message oluştururken kesinlikle sana verdiğim bağlamı kullan, uydurma!
+        "phase": "collect_parameters" -> Eksik parametreleri toplamak istersen
+        "phase": "execute_tool" -> Tüm parametreler tamamlandı, {SUBSCRIPTION_TOOLS.get(state.get("selected_tool"))} çağrılabilir. Daha önce çağırdıysan tekrar çağırma. Başka tool gerekli ise back_to_previous_agent.
+        "phase": "back_to_previous_agent" -> Bir önceki agent'a yönlendirmek istersen, arkadaki tool seçen agent'a yönlendirmek için.
+
+        "missing_parameters": ["param1", "param2"] -> Eksik parametrelerin listesi
+        "missing_parameters": None -> Eksik parametre kalmadıysa
+
+        "known_parameters": {{"param1": "value", "param2": "value2"}} -> Bilinen parametreler burada olacak
+
+        "response_message": "Profesyonel mesaj (daha önce yazmadıysan), kesinlikle aşağıdaki bu prompt'taki bağlama göre yanıt üret" -> İşlemle ilgili son mesajın yeterli olmazsa buradan yeni mesaj yaz.
+        "response_message": None (Python None) -> Herhangi bir mesaj vermeye gerek yok
+
+        "required_user_input": "true" -> Kullanıcıdan cevap almak gerekirse mesela soru sorduysan
+        "required_user_input": "false" -> Kullanıcıdan cevap almaya gerek yoksa
+
+        "agent_message": "Bir sonraki agent'a mesajın. Ne yapıldı ve onun ne yapması gerek"
 
         Yanıt formatı:
         {{
-            "phase": "continue" | "execute_tool" | "back_to_previous_agent",  # Sadece bu değerler
-            "missing_parameters": ["param1", "param2"] or None,  # Eksik parametre yoksa None
-            "known_parameters": {{"param1": "value", "param2": "value2"}},  # Temin edilmiş parametreler
-            "response_message": None (Python bool) | "Profesyonel mesaj (daha önce yazmadıysan)",  # Gereksiz tekrar yok
-            "required_user_input": True | False  # Yanıt bekleniyorsa True,
+            "phase": "collect_parameters" | "execute_tool" | "back_to_previous_agent",
+            "missing_parameters": ["param1", "param2"] | None,
+            "known_parameters": {{"param1": "value", "param2": "value2"}},
+            "response_message": None (Python None) | "Profesyonel mesaj (daha önce yazmadıysan)",
+            "required_user_input": "true" | "false",
             "agent_message": "Bir sonraki agent'a mesajın. Ne yapıldı ve onun ne yapması gerek",
         }}
         """.strip()
@@ -338,7 +337,7 @@ async def tool_agent(state: WorkflowState) -> WorkflowState:
         Not: Müşteri kimliği doğrulanmadan başka tool seçme.
 
         Gerekli bilgiler mevcutsa tekrar isteme.  
-        Yanıt mutlaka JSON formatında olmalı.
+        Yanıt mutlaka Dict formatında olmalı.
         """.strip()
 
     
@@ -349,7 +348,6 @@ async def tool_agent(state: WorkflowState) -> WorkflowState:
             temperature=0.5  # Lower temperature for more precise parameter generation
         )
         
-        print(response)
         decision = extract_json_from_response(response)
 
         state["json_output"] = decision

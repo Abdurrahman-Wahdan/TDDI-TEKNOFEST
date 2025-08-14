@@ -2,6 +2,7 @@
 from datetime import datetime
 import json
 import re
+import ast
 from typing import List, Dict, Any, TypedDict, Optional
 import os
 import sys
@@ -220,7 +221,7 @@ async def summarize_chat_history(messages: List[Dict[str, Any]]) -> str:
 
         {chat_text}
 
-        Format:
+        Format JSON olmalı:
         {{
             "summary": "kısa özet metni"
         }}
@@ -234,19 +235,28 @@ async def summarize_chat_history(messages: List[Dict[str, Any]]) -> str:
     return summary
 
 def extract_json_from_response(response: str) -> dict:
+    """
+    Gelen string response içinde JSON, Python dict ya da ` ```json ... ``` `, ` ```python ... ``` ` blokları olabilir.
+    Bunları Python dict olarak döndürür.
+    """
+    # Kod bloklarını temizle
+    if response.startswith("```") and response.endswith("```"):
+        # ```json ... ``` veya ```python ... ``` varsa içeriği al
+        response = "\n".join(response.split("\n")[1:-1])
+    
+    response = response.strip()
+    
+    # Önce JSON olarak dene
     try:
-        return json.loads(response.strip())
-    except json.JSONDecodeError:
-        patterns = [
-            r'```json\s*(\{.*?\})\s*```',
-            r'```\s*(\{.*?\})\s*```',
-            r'(\{[^{}]*"tool_groups"[^{}]*\})',
-        ]
-        for pattern in patterns:
-            matches = re.findall(pattern, response, re.DOTALL | re.IGNORECASE)
-            for match in matches:
-                try:
-                    return json.loads(match.strip())
-                except json.JSONDecodeError:
-                    continue
-        return {}
+        return json.loads(response)
+    except (json.JSONDecodeError, TypeError):
+        pass
+    
+    # JSON olamadıysa, Python literal dict olarak dene
+    try:
+        return ast.literal_eval(response)
+    except (ValueError, SyntaxError):
+        pass
+    
+    # Eğer hiçbiri olamazsa boş dict döndür
+    return {}
