@@ -1,34 +1,56 @@
-import asyncio
-import logging
-from typing import Dict, Any
-import sys
-import os
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from utils.chat_history import add_message_and_update_summary
 from state import WorkflowState
 
-# Import the SimpleSubscriptionAgent
-from nodes.base_safe_executor import SimpleSubscriptionAgent
-
-logger = logging.getLogger(__name__)
 
 async def simplified_executor(state: WorkflowState) -> WorkflowState:
     """
-    SIMPLIFIED executor using a single smart agent.
-    Agent decides everything based on LLM.
+    SIMPLIFIED executor using smart agents based on category.
     """
     print(f"🔧 EXECUTOR: Processing user_input = '{state.get('user_input')}'")
     
-    # 1. Get or create agent instance
-    agent = state.get("agent_instance")
-    if not agent:
-        agent = SimpleSubscriptionAgent()
-        state["agent_instance"] = agent
-        print("🔧 EXECUTOR: Created new agent instance")
+    category = state.get("current_category", "")
+    
+    # ✅ Get shared authentication data from workflow state
+    shared_auth = {
+        "customer_id": state.get("customer_id"),
+        "customer_data": state.get("customer_data"),
+        "chat_history": state.get("chat_history", []),
+        "chat_summary": state.get("chat_summary", "")
+    }
+    
+    # 1. Get or create appropriate agent instance
+    if category == "subscription":
+        agent = state.get("subscription_agent")
+        if not agent:
+            from nodes.subscription_executor import SimpleSubscriptionAgent
+            agent = SimpleSubscriptionAgent(initial_auth=shared_auth)  # ✅ Pass auth data
+            state["subscription_agent"] = agent
+            print("🔧 EXECUTOR: Created new subscription agent with shared auth")
+        else:
+            # ✅ Update existing agent with latest auth data
+            agent.sync_auth_data(shared_auth)
+            print("🔧 EXECUTOR: Using existing subscription agent, synced auth")
+    
+    elif category == "billing":
+        agent = state.get("billing_agent")  
+        if not agent:
+            from nodes.billing_executor import SimpleBillingAgent
+            agent = SimpleBillingAgent(initial_auth=shared_auth)  # ✅ Pass auth data
+            state["billing_agent"] = agent
+            print("🔧 EXECUTOR: Created new billing agent with shared auth")
+        else:
+            # ✅ Update existing agent with latest auth data
+            agent.sync_auth_data(shared_auth)
+            print("🔧 EXECUTOR: Using existing billing agent, synced auth")
+    
     else:
-        print("🔧 EXECUTOR: Using existing agent instance")
+        # Fallback to subscription agent
+        agent = state.get("subscription_agent")
+        if not agent:
+            from nodes.subscription_executor import SimpleSubscriptionAgent
+            agent = SimpleSubscriptionAgent(initial_auth=shared_auth)  # ✅ Pass auth data
+            state["subscription_agent"] = agent
+    
+    state["agent_instance"] = agent
     
     # 2. Process the request
     try:
@@ -42,18 +64,15 @@ async def simplified_executor(state: WorkflowState) -> WorkflowState:
         state["operation_status"] = result.get("status", "error")
         state["required_user_input"] = not result.get("operation_complete", True)
         
-        # 4. Sync agent state → workflow state
-        state["customer_id"] = agent.customer_id or ""
+        # 4. ✅ SYNC AUTH DATA BACK TO WORKFLOW STATE
+        state["customer_id"] = agent.customer_id or state.get("customer_id", "")
+        state["customer_data"] = agent.customer_data or state.get("customer_data", None)
         state["chat_history"] = agent.chat_history
         state["chat_summary"] = agent.chat_summary
         
-        # 5. ✅ CLEAR user_input to prevent reprocessing
+        # 5. Clear user_input and set routing
         state["user_input"] = ""
-        
-        # 6. ✅ ALWAYS route to direct_response for I/O handling
         state["current_process"] = "direct_response"
-        
-        # 7. ✅ SET operation_complete flag for routing
         state["operation_complete"] = result.get("operation_complete", True)
         
         print(f"🔧 EXECUTOR: Set current_process = direct_response, required_user_input = {state['required_user_input']}, operation_complete = {state['operation_complete']}")
@@ -63,7 +82,7 @@ async def simplified_executor(state: WorkflowState) -> WorkflowState:
         state["error"] = str(e)
         state["assistant_response"] = "Teknik sorun oluştu. Lütfen tekrar deneyin."
         state["operation_status"] = "error"
-        state["operation_complete"] = True  # ✅ Error means operation is complete
+        state["operation_complete"] = True
         state["current_process"] = "direct_response"
         state["user_input"] = ""
     

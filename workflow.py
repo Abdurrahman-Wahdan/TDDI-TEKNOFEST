@@ -214,6 +214,8 @@ async def interactive_session():
         "operation_complete": False,     # ✅ Add this
         "operation_status": "",         # ✅ Add this  
         "agent_instance": None,         # ✅ Add this
+        "subscription_agent": None,     # ✅ Add this
+        "billing_agent": None,          # ✅ Add this
     }
 
     config = {

@@ -6,7 +6,7 @@ Takes raw agent output and makes it TTS-friendly, professional, and concise.
 import logging
 from typing import Dict, Any
 from utils.gemma_provider import call_gemma
-from utils.chat_history import extract_json_from_response
+from utils.chat_history import extract_json_from_response, add_message_and_update_summary
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +34,7 @@ Sen profesyonel müşteri hizmetleri yanıt editörüsün. Ham çıktıyı düze
 
 KURALLAR:
 - Profesyonel ama samimi ton kullan
-- Kısa ve öz yanıtlar ver (1-2 cümle ideal)
 - Emoji, özel karakter, noktalama işareti fazlalığı kullanma
-- TTS için uygun olsun (sesli okuma dostu)
 - ID numaraları, teknik terimler yerine anlaşılır ifadeler kullan
 - Müşteriye direct hitap et, gereksiz detay verme
 - Başarılı işlemler için olumlu, net onay ver
@@ -58,7 +56,7 @@ Sadece düzenlenmiş yanıtı ver, açıklama yapma.
     if operation_type:
         context_parts.append(f"İşlem: {operation_type}")
     if chat_context:
-        context_parts.append(f"Bağlam: {chat_context[-200:]}")
+        context_parts.append(f"Bağlam: {chat_context}")
     
     context_str = " | ".join(context_parts) if context_parts else "Genel müşteri hizmeti"
     
@@ -74,7 +72,7 @@ Bu yanıtı profesyonel, TTS dostu ve kısa hale getir.
         formatted_response = await call_gemma(
             prompt=prompt,
             system_message=system_message,
-            temperature=0.2  # Low temperature for consistent, professional output
+            temperature=0.3  # Low temperature for consistent, professional output
         )
         
         # Clean up any remaining issues

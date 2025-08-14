@@ -179,74 +179,40 @@ Bu içeriği SMS formatına çevir (max 160 karakter).
 
 
 @tool
-def send_sms_message(sms_content: str, force_send: bool = False) -> Dict[str, Any]:
+def send_sms_message(params: Dict[str, Any]) -> Dict[str, Any]:
     """
     Send SMS message using Twilio service.
     
-    Use this only after user has confirmed they want SMS.
-    Always validate that user gave permission before calling this tool.
-    
     Args:
-        sms_content: Formatted SMS content to send
-        force_send: Override safety check (use with caution)
+        sms_content: SMS content to send
         
     Returns:
-        Dict with success, message SID, delivery info, and status
+        Dict with success and message
     """
+    sms_content = params.get("sms_content")
     try:
-        # Safety check - content should be properly formatted
-        if not sms_content.startswith("Kermits:") and not force_send:
-            return {
-                "success": False,
-                "message": "SMS content must start with 'Turkcell:' identifier",
-                "sms_content": sms_content,
-                "sent": False
-            }
-        
-        # Character limit check
-        if len(sms_content) > 160:
-            logger.warning(f"SMS content exceeds 160 characters: {len(sms_content)}")
-            if not force_send:
-                return {
-                    "success": False,
-                    "message": f"SMS too long: {len(sms_content)} characters (max 160)",
-                    "sms_content": sms_content,
-                    "sent": False
-                }
-        
-        # Send via Twilio
+        # Send via Twilio directly - no validation, no checks
         result = sms_service.send_sms(sms_content)
         
         if result["success"]:
-            logger.info(f"SMS sent successfully: {result['message_sid']}")
             return {
                 "success": True,
                 "message": "SMS gönderildi!",
-                "message_sid": result["message_sid"],
-                "to_number": result["to_number"],
-                "sms_content": sms_content,
-                "character_count": len(sms_content),
+                "message_sid": result.get("message_sid", ""),
                 "sent": True
             }
         else:
-            logger.error(f"SMS sending failed: {result['error']}")
             return {
                 "success": False,
-                "message": f"SMS gönderilemedi: {result['error']}",
-                "sms_content": sms_content,
-                "sent": False,
-                "error": result["error"]
+                "message": f"SMS gönderilemedi: {result.get('error', 'Bilinmeyen hata')}",
+                "sent": False
             }
             
     except Exception as e:
-        logger.error(f"SMS sending exception: {e}")
-
         return {
             "success": False,
-            "message": f"SMS gönderim hatası: {str(e)}",
-            "sms_content": sms_content,
-            "sent": False,
-            "error": str(e)
+            "message": f"SMS hatası: {str(e)}",
+            "sent": False
         }
 
 # ======================== FAQ TOOLS ========================
@@ -469,7 +435,7 @@ def change_customer_plan(customer_id: int, old_plan_id: int, new_plan_id: int) -
 # ======================== BILLING TOOLS ========================
 
 @tool
-def get_customer_bills(customer_id: int, limit: int = 10) -> Dict[str, Any]:
+def get_customer_bills(params: Dict[str,any]) -> Dict[str, Any]:
     """
     Get customer's recent bills.
     
@@ -483,6 +449,8 @@ def get_customer_bills(customer_id: int, limit: int = 10) -> Dict[str, Any]:
     Returns:
         Dict with success, bills list, count, message
     """
+    customer_id = params.get("customer_id")
+    limit = params.get("limit", 10)
     try:
         result = mcp_client.get_customer_bills(customer_id, limit)
         logger.info(f"Retrieved {limit} bills for customer {customer_id}")
@@ -497,7 +465,7 @@ def get_customer_bills(customer_id: int, limit: int = 10) -> Dict[str, Any]:
         }
 
 @tool
-def get_unpaid_bills(customer_id: int) -> Dict[str, Any]:
+def get_unpaid_bills(params: Dict[str, Any]) -> Dict[str, Any]:
     """
     Get customer's unpaid bills only.
     
@@ -510,6 +478,7 @@ def get_unpaid_bills(customer_id: int) -> Dict[str, Any]:
     Returns:
         Dict with success, unpaid bills list, count, total_amount
     """
+    customer_id = params.get("customer_id")
     try:
         result = mcp_client.get_unpaid_bills(customer_id)
         logger.info(f"Retrieved unpaid bills for customer {customer_id}")
@@ -525,7 +494,7 @@ def get_unpaid_bills(customer_id: int) -> Dict[str, Any]:
         }
 
 @tool
-def get_billing_summary(customer_id: int) -> Dict[str, Any]:
+def get_billing_summary(params: Dict[str, Any]) -> Dict[str, Any]:
     """
     Get comprehensive billing summary and statistics.
     
@@ -538,6 +507,7 @@ def get_billing_summary(customer_id: int) -> Dict[str, Any]:
     Returns:
         Dict with success, billing summary statistics, message
     """
+    customer_id = params.get("customer_id")
     try:
         result = mcp_client.get_billing_summary(customer_id)
         logger.info(f"Retrieved billing summary for customer {customer_id}")
@@ -551,7 +521,7 @@ def get_billing_summary(customer_id: int) -> Dict[str, Any]:
         }
 
 @tool
-def create_bill_dispute(customer_id: int, bill_id: int, reason: str) -> Dict[str, Any]:
+def create_bill_dispute(params: Dict[str, Any]) -> Dict[str, Any]:
     """
     Create a bill dispute for a specific bill.
     
@@ -566,6 +536,9 @@ def create_bill_dispute(customer_id: int, bill_id: int, reason: str) -> Dict[str
     Returns:
         Dict with success, dispute_id, dispute details, message
     """
+    customer_id = params.get("customer_id")
+    bill_id = params.get("bill_id")
+    reason = params.get("reason", "").strip()
     try:
         result = mcp_client.create_bill_dispute(customer_id, bill_id, reason)
         logger.info(f"Created bill dispute for customer {customer_id}, bill {bill_id}")
@@ -580,7 +553,7 @@ def create_bill_dispute(customer_id: int, bill_id: int, reason: str) -> Dict[str
 # ======================== TECHNICAL SUPPORT TOOLS ========================
 
 @tool
-def get_customer_active_appointment(customer_id: int) -> Dict[str, Any]:
+def get_customer_active_appointment(params: Dict[str, Any]) -> Dict[str, Any]:
     """
     Check if customer has an active technical appointment.
     
@@ -593,6 +566,7 @@ def get_customer_active_appointment(customer_id: int) -> Dict[str, Any]:
     Returns:
         Dict with success, has_active, appointment details
     """
+    customer_id = params.get("customer_id")
     try:
         result = mcp_client.get_customer_active_appointment(customer_id)
         logger.info(f"Checked active appointment for customer {customer_id}")
@@ -607,7 +581,7 @@ def get_customer_active_appointment(customer_id: int) -> Dict[str, Any]:
         }
 
 @tool
-def get_available_appointment_slots(days_ahead: int = 14) -> Dict[str, Any]:
+def get_available_appointment_slots(params: Dict[str, Any]) -> Dict[str, Any]:
     """
     Get available technical appointment time slots.
     
@@ -620,6 +594,7 @@ def get_available_appointment_slots(days_ahead: int = 14) -> Dict[str, Any]:
     Returns:
         Dict with success, slots list, count, message
     """
+    days_ahead = params.get("days_ahead")
     try:
         result = mcp_client.get_available_appointment_slots(days_ahead)
         logger.info(f"Retrieved {days_ahead} days of appointment slots")
@@ -634,7 +609,7 @@ def get_available_appointment_slots(days_ahead: int = 14) -> Dict[str, Any]:
         }
 
 @tool
-def create_appointment(customer_id: int, appointment_date: str, appointment_time: str, team_name: str, notes: str = "") -> Dict[str, Any]:
+def create_appointment(params: Dict[str, Any]) -> Dict[str, Any]:
     """
     Create a new technical support appointment.
     
@@ -651,6 +626,11 @@ def create_appointment(customer_id: int, appointment_date: str, appointment_time
     Returns:
         Dict with success, appointment_id, appointment details, message
     """
+    customer_id = params.get("customer_id")
+    appointment_date = params.get("appointment_date")
+    team_name = params.get("team_name")
+    appointment_time = params.get("appointment_time")
+    notes = params.get("notes", "")
     try:
         # Convert string date to date object
         from datetime import datetime
@@ -777,6 +757,7 @@ TOOL_GROUPS = {
     ],
     
     "billing": [
+        get_customer_bills,
         get_unpaid_bills,
         get_billing_summary,
         create_bill_dispute,
@@ -790,10 +771,7 @@ TOOL_GROUPS = {
         create_appointment,
         reschedule_appointment,
         authenticate_customer,
-        check_tc_kimlik_exists,
-        format_content_for_sms,
         send_sms_message,
-        search_faq_knowledge,
     ],
     
     "registration": [

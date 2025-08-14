@@ -39,7 +39,7 @@ def convert_decimals(obj):
 class SimpleSubscriptionAgent:
     """SIMPLIFIED agent - LLM decides everything"""
     
-    def __init__(self):
+    def __init__(self, initial_auth: Dict[str, Any] = None):
         self.tools = {
             "get_customer_active_plans": get_customer_active_plans,
             "get_available_plans": get_available_plans,
@@ -47,13 +47,31 @@ class SimpleSubscriptionAgent:
             "authenticate_customer": authenticate_customer,
         }
         
-        self.customer_id = None
-        self.customer_data = None
-        self.chat_history = []
-        self.chat_summary = ""
+        # ✅ Initialize with shared auth data if provided
+        if initial_auth and initial_auth.get("customer_id"):
+            self.customer_id = initial_auth.get("customer_id")
+            self.customer_data = initial_auth.get("customer_data")
+            self.chat_history = initial_auth.get("chat_history", [])
+            self.chat_summary = initial_auth.get("chat_summary", "")
+            print(f"🔧 SUBSCRIPTION AGENT: Initialized with existing auth for customer {self.customer_id}")
+        else:
+            self.customer_id = None
+            self.customer_data = None
+            self.chat_history = []
+            self.chat_summary = ""
+        
         self.pending_intent = None
         
         logger.info("Simple Subscription Agent initialized")
+    
+    def sync_auth_data(self, auth_data: Dict[str, Any]):
+        """Sync authentication data from other agents"""
+        if auth_data.get("customer_id"):
+            self.customer_id = auth_data.get("customer_id")
+            self.customer_data = auth_data.get("customer_data")
+            self.chat_history = auth_data.get("chat_history", self.chat_history)
+            self.chat_summary = auth_data.get("chat_summary", self.chat_summary)
+            print(f"🔧 SUBSCRIPTION AGENT: Synced auth data for customer {self.customer_id}")
     
     async def process_request(self, user_input: str) -> Dict[str, Any]:
         """Main method - LLM decides everything"""
@@ -467,21 +485,86 @@ Bu mesaj için en doğru kararı ver.
             }
     
     async def _extract_tc_number(self, text: str) -> Optional[str]:
-        """Extract TC number from text"""
+        """Extract TC number from text using LLM - Same signature, smarter extraction"""
         
-        # First try simple extraction
-        import re
-        numbers = re.findall(r'\b\d{11}\b', text)
-        if numbers:
-            return numbers[0]
+        try:
+            # Use LLM to extract TC number intelligently
+            extraction_prompt = f"""
+    Kullanıcı mesajı: "{text}"
+
+    Bu mesajdan TC kimlik numarasını bul ve çıkar.
+
+    KURALLAR:
+    - TC kimlik numarası 11 haneli sayıdır
+    - Boşluk, tire, nokta gibi karakterler olabilir (123 456 789 01 veya 123-456-789-01)
+    - "tc", "kimlik", "numara" kelimeleri yakınında olabilir
+    - Sadece TC kimlik numarasını ver, başka bir şey ekleme
+    - Bulamazsan "NONE" yaz
+    - Birden fazla 11 haneli sayı varsa TC kimlik numarası olanı seç
+
+    YANIT FORMATINI:
+    - Bulursan: sadece 11 haneli sayı (12345678901)
+    - Bulamazsan: NONE
+            """.strip()
+            
+            response = await call_gemma(
+                prompt=extraction_prompt,
+                system_message="Sen TC kimlik numarası çıkarma uzmanısın. Metinden doğru TC kimlik numarasını tespit edersin.",
+                temperature=0.1  # Low temperature for precise extraction
+            )
+            
+            # Clean and validate the response
+            extracted = response.strip().replace(" ", "").replace("-", "").replace(".", "")
+            
+            # Validate: must be exactly 11 digits
+            if extracted == "NONE":
+                logger.info(f"LLM could not extract TC from: '{text[:50]}...'")
+                return None
+            elif extracted.isdigit() and len(extracted) == 11:
+                logger.info(f"LLM extracted TC: {extracted[:3]}***")
+                return extracted
+            else:
+                logger.warning(f"LLM returned invalid TC format: '{extracted}' from text: '{text[:50]}...'")
+                return None
+                
+        except Exception as e:
+            logger.error(f"LLM TC extraction error: {e}")
+            
+            # ✅ FALLBACK: Use regex as backup if LLM fails
+            return await self._fallback_tc_extraction(text)
+
+    async def _fallback_tc_extraction(self, text: str) -> Optional[str]:
+        """Fallback regex extraction if LLM fails"""
         
-        # Try cleaning and extracting
-        clean_text = re.sub(r'[^\d]', '', text)
-        if len(clean_text) == 11 and clean_text.isdigit():
-            return clean_text
-        
-        # If no 11-digit number found, return None
-        return None
+        try:
+            import re
+            
+            # Simple regex patterns as fallback
+            patterns = [
+                r'\b\d{11}\b',  # Direct 11 digits
+                r'\b\d{3}[\s\-\.]*\d{3}[\s\-\.]*\d{3}[\s\-\.]*\d{2}\b',  # Formatted
+            ]
+            
+            for pattern in patterns:
+                matches = re.findall(pattern, text)
+                for match in matches:
+                    clean_number = re.sub(r'[^\d]', '', match)
+                    if len(clean_number) == 11 and clean_number.isdigit():
+                        logger.info(f"Fallback regex extracted TC: {clean_number[:3]}***")
+                        return clean_number
+            
+            # Last resort: clean entire text
+            clean_text = re.sub(r'[^\d]', '', text)
+            if len(clean_text) == 11 and clean_text.isdigit():
+                logger.info(f"Fallback full-text extracted TC: {clean_text[:3]}***")
+                return clean_text
+                
+            logger.info(f"No TC found in fallback extraction: '{text[:50]}...'")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Fallback TC extraction error: {e}")
+            return None
 
 
 # Example usage

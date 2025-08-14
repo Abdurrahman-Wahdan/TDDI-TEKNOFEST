@@ -27,3 +27,6 @@ class WorkflowState(TypedDict):
     operation_complete: bool          # ✅ Add this
     operation_status: str            # ✅ Add this  
     agent_instance: Optional[Any]    # ✅ Add this
+    subscription_agent: Optional[Any]  # ✅ Add this
+    billing_agent: Optional[Any]      # ✅ Add this
+    technical_agent: Optional[Any]    # ✅ Add this

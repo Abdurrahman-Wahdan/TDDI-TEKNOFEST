@@ -7,8 +7,14 @@ import logging
 import os
 from typing import Dict, Any
 from twilio.rest import Client
+import os
+import sys
+from dotenv import load_dotenv  # ✅ Add this import
 
 logger = logging.getLogger(__name__)
+
+# ✅ EXPLICITLY LOAD .env FILE
+load_dotenv()
 
 # ======================== SIMPLE SMS SERVICE ========================
 
@@ -183,14 +189,14 @@ Sen SMS formatçısısın. Metni SMS için uygun şekilde yaz.
         }
 
 
-# if __name__ == "__main__":
-#     print("📱 Simple SMS Service Test")
+if __name__ == "__main__":
+    print("📱 Simple SMS Service Test")
     
-#     # Quick test
-#     test_message = "Turkcell Test: SMS sistemi çalışıyor! ✅"
-#     result = sms_service.send_sms(test_message)
+    # Quick test
+    test_message = "Turkcell Test: SMS sistemi çalışıyor! ✅"
+    result = sms_service.send_sms(test_message)
     
-#     if result["success"]:
-#         print(f"✅ SMS sent successfully: {result['message_sid']}")
-#     else:
-#         print(f"❌ SMS failed: {result['error']}")
+    if result["success"]:
+        print(f"✅ SMS sent successfully: {result['message_sid']}")
+    else:
+        print(f"❌ SMS failed: {result['error']}")
