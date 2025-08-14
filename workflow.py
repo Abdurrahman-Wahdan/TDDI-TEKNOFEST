@@ -31,7 +31,7 @@ async def greeting(state: WorkflowState):
         ```
         """
 
-    response = await call_gemma(prompt=prompt, temperature=0.5)
+    response = await call_gemma(prompt=prompt, temperature=0.1)
     print(response)
     data = extract_json_from_response(response.strip())
 
@@ -45,10 +45,10 @@ async def greeting(state: WorkflowState):
 
 async def direct_response(state: WorkflowState):
     
-    if state["assistant_response"] != None:
+    if state["assistant_response"] != "null":
         print("Asistan:", state["assistant_response"])
         await add_message_and_update_summary(state, role="asistan", message=state["assistant_response"])
-        state["assistant_response"] = None
+        state["assistant_response"] = "null"
 
     if state["required_user_input"] == "true":
         state["user_input"] = input("Kullanıcı talebini gir: ").strip()
@@ -164,8 +164,8 @@ async def interactive_session():
         "current_tool": "",
         "current_category": ""
     }
-    
-    state = await graph.ainvoke(state)
+
+    state = await graph.ainvoke(state, {"recursion_limit": 100})
 
 if __name__ == "__main__":
     asyncio.run(interactive_session())

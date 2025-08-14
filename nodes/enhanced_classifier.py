@@ -95,7 +95,7 @@ system_prompt = f"""
         "response_message": "Profesyonel mesaj (daha önce yazmadıysan)" -> İşlemle ilgili son mesajın yeterli olmazsa buradan yeni mesaj yaz.
         "response_message": None (Python None) -> Herhangi bir mesaj vermeye gerek yok.
 
-        "required_user_input": "true" -> Kullanıcıdan cevap almak gerekirse
+        "required_user_input": "true" -> Kullanıcıdan cevap almak gerekirse mesela soru sorulduysa.
         "required_user_input": "false" -> Kullanıcıdan cevap almaya gerek yoksa
 
         "agent_message": "Bir sonraki agent'a mesajın. Ne yapıldı ve onun ne yapması gerek"
@@ -109,9 +109,7 @@ system_prompt = f"""
         "category": "kategori seç",
         "required_user_input": "true" | "false",
         "response_message": "Profesyonel mesaj (daha önce yazmadıysan)" | None,
-        "agent_message": "Bir sonraki agent'a mesajın. Ne yapıldı ne yapması gerek",
         }}
-        
         """.strip()
 
 async def fallback_user_request(state: WorkflowState) -> dict:
@@ -141,6 +139,7 @@ async def fallback_user_request(state: WorkflowState) -> dict:
     print(response)
     data = json.loads(response)
     state["json_output"] = data
+    state["required_user_input"] = data.get("required_user_input", "false")
 
     return state
 
@@ -159,9 +158,6 @@ async def classify_user_request(state: WorkflowState) -> dict:
 
         Müşterinin son mesajı:
         {state["user_input"]}
-
-        Önceki agent mesajı:
-        {state["agent_message"]}
 
         Dict formatında vermeyi unutma.
         """

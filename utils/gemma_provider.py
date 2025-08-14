@@ -107,7 +107,7 @@ def call_gemma_sync(
         
         # Create model instance
         model = ChatGoogleGenerativeAI(
-            model="gemma-3-27b-it",
+            model="gemmma-3-27b-it",
             google_api_key=api_key,
             temperature=temperature,
             max_output_tokens=max_tokens,

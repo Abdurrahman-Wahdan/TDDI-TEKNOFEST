@@ -440,7 +440,7 @@ def get_customer_subscription_info(customer_id: int) -> Dict[str, Any]:
         }
 
 @tool
-def change_customer_plan(customer_id: int, old_plan_id: int, new_plan_id: int) -> Dict[str, Any]:
+def change_customer_plan(params: Dict[str, Any]) -> Dict[str, Any]:
     """
     Change customer's subscription plan.
     
@@ -455,6 +455,11 @@ def change_customer_plan(customer_id: int, old_plan_id: int, new_plan_id: int) -
     Returns:
         Dict with success, change result, new plan details, message
     """
+
+    customer_id = params.get("customer_id")
+    old_plan_id = params.get("old_plan_id")
+    new_plan_id = params.get("new_plan_id")
+
     try:
         result = mcp_client.change_customer_plan(customer_id, old_plan_id, new_plan_id)
         logger.info(f"Plan change for customer {customer_id}: {old_plan_id} -> {new_plan_id}")

@@ -202,11 +202,11 @@ async def execute_operation(state: WorkflowState) -> WorkflowState:
         Öncelikli kural: Kullanıcı **önce authenticate edilmeli** (authenticate_customer).
 
         "selected_tool": "tool_name" -> Bir tool seçebilirsen (en son seçilen tool olmasın)
-        "selected_tool": None -> Bir tool seçemezsen mesela soruna cevap bekliyorsan
-        "selected_tool": "back_to_previous_agent" -> Bir arka agent'a dönebilirsin. Kategori seçen agent bulunuyor..
+        "selected_tool": "null" -> Bir tool seçemezsen mesela soruna cevap bekliyorsan
+        "selected_tool": "back_to_previous_agent" -> Bir arka agent'a dönebilirsin mesela işlem bittiğinde ya da arkadaşi kategori seçen agent'a ihtiyaç duyulduğunda.
 
         "response_message": "Profesyonel mesaj (daha önce yazmadıysan)" -> İşlemle ilgili son mesajın yeterli olmazsa buradan yeni mesaj yaz.
-        "response_message": None (Python None) -> Herhangi bir mesaj vermeye gerek yok.
+        "response_message": "null" -> Herhangi bir mesaj vermeye gerek yok.
 
         "required_user_input": "true" -> Kullanıcıdan cevap almak gerekirse
         "required_user_input": "false" -> Kullanıcıdan cevap almaya gerek yoksa
@@ -215,10 +215,9 @@ async def execute_operation(state: WorkflowState) -> WorkflowState:
 
         Çıktı formatı:
         {{
-            "selected_tool": "tool_name | None (Python None) | "back_to_previous_agent",
-            "response_message": "Profesyonel mesaj (daha önce yazmadıysan)" | None,
+            "selected_tool": "tool_name | "null" | "back_to_previous_agent",
+            "response_message": "Profesyonel mesaj (daha önce yazmadıysan)" | "null",
             "required_user_input": "true" | "false",
-            "agent_message": "Bir sonraki agent'a mesajın. Ne yapıldı ve onun ne yapması gerek",
         }}
         """.strip()
     
@@ -228,9 +227,6 @@ async def execute_operation(state: WorkflowState) -> WorkflowState:
 
         Müşterinin son mesajı:
         {state["user_input"]}
-
-        Önceki agent mesajı:
-        {state["agent_message"]}
 
         En son çağrılan araç: "{state["json_output"].get("selected_tool", "")}"
         MCP çıktıları: {state["last_mcp_output"]}
@@ -247,7 +243,7 @@ async def execute_operation(state: WorkflowState) -> WorkflowState:
         response = await call_gemma(
             prompt=context,
             system_message=system_message,
-            temperature=0.5  # Lower temperature for more precise parameter generation
+            temperature=0.1  # Lower temperature for more precise parameter generation
         )
 
         decision = extract_json_from_response(response)
@@ -258,14 +254,14 @@ async def execute_operation(state: WorkflowState) -> WorkflowState:
 
         state["assistant_response"] = decision.get("response_message", "")
         state["required_user_input"] = decision.get("required_user_input", False)
-        state["agent_message"] = decision.get("agent_message", "").strip()
 
         state["selected_tool"] = decision.get("selected_tool", "")
 
         if state.get("json_output", {}).get("selected_tool") == "back_to_previous_agent":
+            print("deneme")
             state["current_process"] = "classify"
         
-        elif state.get("json_output", {}).get("selected_tool") == "None":
+        elif state.get("json_output", {}).get("selected_tool") == "null":
             state["current_process"] = "executer"
 
         else:
@@ -292,16 +288,15 @@ async def tool_agent(state: WorkflowState) -> WorkflowState:
         Müşteri numarası: {customer_id}
 
         "phase": "collect_parameters" -> Eksik parametreleri toplamak istersen
-        "phase": "execute_tool" -> Tüm parametreler tamamlandı, {SUBSCRIPTION_TOOLS.get(state.get("selected_tool"))} çağrılabilir. Daha önce çağırdıysan tekrar çağırma. Başka tool gerekli ise back_to_previous_agent.
-        "phase": "back_to_previous_agent" -> Bir önceki agent'a yönlendirmek istersen, arkadaki tool seçen agent'a yönlendirmek için.
+        "phase": "execute_tool" -> Tüm parametreler tamamlandı, {SUBSCRIPTION_TOOLS.get(state.get("selected_tool"))} çağrılabilir. Daha önce çağırdıysan tekrar çağırma! Önceki agent'a yönlendirmek için back_to_previous_agent olmalı.
+        "phase": "back_to_previous_agent" -> Bir önceki agent'a yönlendirmek istersen, arkadaki tool seçen agent'a yönlendirmek için. {list(SUBSCRIPTION_TOOLS.keys())} birisi gerekli ise back_to_previous_agent olmalı.
 
         "missing_parameters": ["param1", "param2"] -> Eksik parametrelerin listesi
-        "missing_parameters": None -> Eksik parametre kalmadıysa
 
         "known_parameters": {{"param1": "value", "param2": "value2"}} -> Bilinen parametreler burada olacak
 
         "response_message": "Profesyonel mesaj (daha önce yazmadıysan), kesinlikle aşağıdaki bu prompt'taki bağlama göre yanıt üret" -> İşlemle ilgili son mesajın yeterli olmazsa buradan yeni mesaj yaz.
-        "response_message": None (Python None) -> Herhangi bir mesaj vermeye gerek yok
+        "response_message": "null" -> Herhangi bir mesaj vermeye gerek yok
 
         "required_user_input": "true" -> Kullanıcıdan cevap almak gerekirse mesela soru sorduysan
         "required_user_input": "false" -> Kullanıcıdan cevap almaya gerek yoksa
@@ -311,11 +306,10 @@ async def tool_agent(state: WorkflowState) -> WorkflowState:
         Yanıt formatı:
         {{
             "phase": "collect_parameters" | "execute_tool" | "back_to_previous_agent",
-            "missing_parameters": ["param1", "param2"] | None,
+            "missing_parameters": ["param1", "param2"],
             "known_parameters": {{"param1": "value", "param2": "value2"}},
-            "response_message": None (Python None) | "Profesyonel mesaj (daha önce yazmadıysan)",
+            "response_message": "null" | "Profesyonel mesaj (daha önce yazmadıysan)",
             "required_user_input": "true" | "false",
-            "agent_message": "Bir sonraki agent'a mesajın. Ne yapıldı ve onun ne yapması gerek",
         }}
         """.strip()
 
@@ -326,9 +320,6 @@ async def tool_agent(state: WorkflowState) -> WorkflowState:
 
         Müşterinin son mesajı:
         {state["user_input"]}
-
-        Önceki agent mesajı:
-        {state["agent_message"]}
 
         Son çağrılan tool: "{state["json_output"].get("selected_tool", "")}"
         API yanıtı: {state["last_mcp_output"]}
@@ -345,7 +336,7 @@ async def tool_agent(state: WorkflowState) -> WorkflowState:
         response = await call_gemma(
             prompt=context,
             system_message=system_message,
-            temperature=0.5  # Lower temperature for more precise parameter generation
+            temperature=0.1  # Lower temperature for more precise parameter generation
         )
         
         decision = extract_json_from_response(response)
@@ -356,7 +347,6 @@ async def tool_agent(state: WorkflowState) -> WorkflowState:
 
         state["assistant_response"] = decision.get("response_message", "")
         state["required_user_input"] = decision.get("required_user_input", False)
-        state["agent_message"] = decision.get("agent_message", "").strip()
 
         if decision.get("phase") == "back_to_previous_agent":
             state["current_process"] = "executer"
@@ -390,5 +380,11 @@ async def tool_processing(state: WorkflowState) -> WorkflowState:
         mcp_response = get_available_plans.invoke({})
         state["last_mcp_output"]["get_available_plans"] = mcp_response
         state["current_process"] = "executer"
+
+    if state["current_tool"] == "change_customer_plan":
+        mcp_response = change_customer_plan.invoke({"params": params})
+        state["last_mcp_output"]["change_customer_plan"] = mcp_response
+        state["current_process"] = "executer"
+        
         
     return state
