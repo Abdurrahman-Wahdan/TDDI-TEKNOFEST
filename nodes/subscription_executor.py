@@ -1,3 +1,16 @@
+# Copyright 2025 kermits
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """
 SIMPLIFIED Subscription Agent - LLM makes ALL decisions
 """
@@ -285,7 +298,7 @@ Bu mesaj için en doğru kararı ver.
                 
                 return {
                     "status": "success",
-                    "message": f"Hoş geldiniz {customer_name}!",
+                    "message": f"Müşteri Bilgileri: {self.customer_data}",
                     "authenticated": True,
                     "operation_complete": False  # ✅ Changed: Continue conversation after auth
                 }

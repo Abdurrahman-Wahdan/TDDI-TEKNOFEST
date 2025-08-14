@@ -1,3 +1,16 @@
+# Copyright 2025 kermits
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """
 SIMPLIFIED Billing Agent - LLM makes ALL decisions
 Exact same pattern as subscription agent but for billing operations
@@ -562,9 +575,9 @@ Bu mesaj için en doğru kararı ver.
             FATURA BİLGİLERİ:
             {bills_result.get("bills", [])}
 
-            Kısa, profesyonel SMS metni yaz (max 150 karakter):
+            SMS formatı uygun şekilde, profesyonel SMS metni yaz:
             - Fatura bilgisi varsa kullan
-            - İtiraz/şikayet varsa belirt
+            - İtiraz/şikayet varsa belirt ve nedeni bilet elinde ne bilgi varsa eklemeye çalılş detaylı bir mesaj olsun
             - Yardım numarası: 532
             - Başlangıç: "Turkcell:"
 
@@ -576,7 +589,7 @@ Bu mesaj için en doğru kararı ver.
                     sms_content = await call_gemma(
                         prompt=sms_prompt,
                         system_message="Sen SMS yazarısın. Kısa, net, profesyonel yaz.",
-                        temperature=0.3
+                        temperature=0.4
                     )
                     
                     # Clean the response
