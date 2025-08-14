@@ -24,3 +24,6 @@ class WorkflowState(TypedDict):
     last_mcp_output: Dict[str, Any]
     current_tool: str
     current_category: str
+    operation_complete: bool          # ✅ Add this
+    operation_status: str            # ✅ Add this  
+    agent_instance: Optional[Any]    # ✅ Add this

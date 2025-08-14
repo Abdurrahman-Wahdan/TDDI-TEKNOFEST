@@ -777,15 +777,11 @@ TOOL_GROUPS = {
     ],
     
     "billing": [
-        get_customer_bills,
         get_unpaid_bills,
         get_billing_summary,
         create_bill_dispute,
         authenticate_customer,
-        check_tc_kimlik_exists,
-        format_content_for_sms,
         send_sms_message,
-        search_faq_knowledge,
     ],
     
     "technical": [
