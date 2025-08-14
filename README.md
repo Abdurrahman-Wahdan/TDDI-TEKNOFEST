@@ -1,8 +1,45 @@
 # Kermits - TDDI 2025 - Customer Service AI Agent
 
+![TDDI Architecture](assets/tddi-architecture.png)
+
 A sophisticated AI-powered customer service system built entirely with **open-source technologies**. Provides intelligent routing, automated responses, and seamless integration with MCP services using LangGraph workflows and GEMMA 3 LLM.
 
+## 📋 Table of Contents
+
+- [🏗️ Architecture Overview](#️-architecture-overview)
+  - [1. LLM-Driven Workflow](#1-llm-driven-workflow-100-ai-decision-making)
+  - [2. Hybrid Workflow](#2-hybrid-workflow-llm-planning--software-execution)
+- [🚀 Key Features](#-key-features)
+- [🌟 Open Source Technology Stack](#-open-source-technology-stack)
+  - [Core Framework](#core-framework)
+  - [AI & Machine Learning](#ai--machine-learning)
+  - [Data Storage](#data-storage)
+  - [Infrastructure](#infrastructure)
+  - [MCP Services](#mcp-model-control-protocol-services)
+- [📋 System Requirements](#-system-requirements)
+- [🛠️ Installation](#️-installation)
+  - [1. Clone the Repository](#1-clone-the-repository)
+  - [2. Python Environment Setup](#2-python-environment-setup)
+  - [3. Install Dependencies](#3-install-dependencies)
+  - [4. Environment Configuration](#4-environment-configuration)
+- [🗄️ Database Setup](#️-database-setup)
+  - [PostgreSQL Database Restoration](#postgresql-database-restoration)
+  - [Qdrant Vector Database Setup](#qdrant-vector-database-setup-docker)
+- [🚀 Running the System](#-running-the-system)
+  - [1. Start Database Services](#1-start-database-services)
+  - [2. Verify Database Connections](#2-verify-database-connections)
+  - [3. Run the Main Application](#3-run-the-main-application)
+- [💬 Example Conversation Flows](#-example-conversation-flows)
+  - [Subscription Management](#subscription-management)
+  - [Billing Management](#billing-management-example)
+- [📂 Project Structure](#-project-structure)
+- [📖 API Documentation](#-api-documentation)
+  - [MCP Operations](#mcp-operations)
+- [🤝 Contributors](#-contributors)
+
 ## 🏗️ Architecture Overview
+
+![Workflow Architecture](assets/workflow-diagram.png)
 
 The system features **two distinct workflow patterns**:
 
@@ -18,8 +55,7 @@ The system features **two distinct workflow patterns**:
 - Structured tool usage with deterministic execution
 - Better for complex multi-step operations
 
-> [!IMPORTANT] 
-> Main Flow
+<p class="callout info">Main Flow</p>
 
 ## 🚀 Key Features
 
@@ -31,10 +67,11 @@ The system features **two distinct workflow patterns**:
 - **Comprehensive Database**: PostgreSQL with full customer service data model
 - **Real-time Embeddings**: Qdrant vector database for semantic search and vector storage running locally
 
-> [!NOTE]
-> Technical and Registration modules are MCP Server Ready but not integrated yet
+<p class="callout warning">Technical and Registration modules are MCP Server Ready but not integrated yet</p>
 
 ## 🌟 Open Source Technology Stack
+
+![Technology Stack](assets/tech-stack.png)
 
 This system is built entirely with **open-source technologies**:
 
@@ -82,8 +119,7 @@ This system is built entirely with **open-source technologies**:
   - **SFP8 (8-bit)**: ~29.1 GB  
   - **Q4_0 (4-bit)**: ~21 GB  
 
-> [!NOTE]
-> VRAM requirements listed above are for **model loading only**. Running with large context windows (e.g., **128K tokens**) will require significantly more memory.
+<p class="callout info">VRAM requirements listed above are for model loading only. Running with large context windows (e.g., 128K tokens) will require significantly more memory.</p>
 
 ## 🛠️ Installation
 
@@ -153,9 +189,7 @@ DEBUG=True
 LOG_LEVEL=INFO
 ```
 
-**Note:**
-- On **macOS/Linux**, always use `python3` and `pip3` to avoid conflicts with system Python.
-- On **Windows**, use `python` and `pip` if your environment variables are set correctly.
+<p class="callout success">On macOS/Linux, always use `python3` and `pip3` to avoid conflicts with system Python. On Windows, use `python` and `pip` if your environment variables are set correctly.</p>
 
 ## 🗄️ Database Setup
 
@@ -233,9 +267,7 @@ docker start tddi-postgres
 docker start tddi-qdrant
 ```
 
-**If running locally:**
-> [!NOTE]
-> You can run PostgreSQL directly if you have pgAdmin and PostgreSQL installed locally, which can be easier than setting up a Docker container.
+<p class="callout info">You can run PostgreSQL directly if you have pgAdmin and PostgreSQL installed locally, which can be easier than setting up a Docker container.</p>
 
 ### 2. Verify Database Connections
 
