@@ -29,4 +29,3 @@ class WorkflowState(TypedDict):
     agent_instance: Optional[Any]    # ✅ Add this
     subscription_agent: Optional[Any]  # ✅ Add this
     billing_agent: Optional[Any]      # ✅ Add this
-    technical_agent: Optional[Any]    # ✅ Add this

@@ -10,7 +10,9 @@ import os
 import wave
 import hashlib
 from io import BytesIO
-from workflow import graph, process_through_workflow
+
+# Import your workflow
+from workflow import graph
 from state import WorkflowState
 
 # TTS import
@@ -31,7 +33,6 @@ if 'mode' in st.session_state and st.session_state.mode is not None:
         st.session_state.workflow_state = None  # Clear workflow state
         st.rerun()
 
-
 # Initialize session state
 if 'messages' not in st.session_state:
     st.session_state.messages = []
@@ -46,7 +47,9 @@ if 'chat_summary' not in st.session_state:
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 if 'customer_id' not in st.session_state:
-    st.session_state.customer_id = "user_001"
+    st.session_state.customer_id = ""
+if 'customer_data' not in st.session_state:
+    st.session_state.customer_data = None
 if 'workflow_state' not in st.session_state:
     st.session_state.workflow_state = None
 if 'tts_model' not in st.session_state:
@@ -138,7 +141,6 @@ def transcribe(audio_data):
         return ""
 
 # TTS function
-# TTS function
 def text_to_speech(text):
     """Convert text to speech and return audio bytes"""
     if not TTS_AVAILABLE or not st.session_state.tts_model or not st.session_state.tts_tokenizer or not text.strip():
@@ -195,31 +197,179 @@ def text_to_speech(text):
         st.error(f"TTS Error: {e}")
         return None
 
-# Process text through workflow
+# ✅ UPDATED: Streamlit-compatible direct_response function
+async def streamlit_direct_response(state: WorkflowState):
+    """
+    Modified direct_response that doesn't ask for input (Streamlit provides it)
+    """
+    if state["assistant_response"] is not None:
+        # Format the response if we have an agent
+        if state.get("agent_instance"):
+            # We have an agent - format the response professionally
+            from utils.response_formatter import format_final_response
+            
+            customer_name = ""
+            if state.get("customer_id") and state.get("agent_instance"):
+                customer_data = state["agent_instance"].customer_data
+                if customer_data:
+                    customer_name = f"{customer_data['first_name']} {customer_data['last_name']}"
+            
+            formatted_response = await format_final_response(
+                raw_message=state["assistant_response"],
+                customer_name=customer_name,
+                operation_type=state.get("current_category", ""),
+                chat_context=state.get("chat_summary", "")
+            )
+            
+            # Store the formatted response
+            state["final_assistant_response"] = formatted_response
+        else:
+            # No agent - use response as-is (greeting, classifier responses)
+            state["final_assistant_response"] = state["assistant_response"]
+        
+        # Update chat history
+        from utils.chat_history import add_message_and_update_summary
+        await add_message_and_update_summary(state, role="asistan", message=state["final_assistant_response"])
+        
+        state["assistant_response"] = None
+    
+    # ✅ Don't ask for input - Streamlit will provide it
+    return state
+
+# ✅ Process text through workflow
 async def process_through_workflow(user_input: str, session_state):
     """
-    Process user input through the workflow and return the assistant response
+    Process user input through your workflow and return the assistant response
     """
     try:
-        # Use the streamlit-specific entry point
-        response, updated_state = await process_through_workflow(
-            user_input, 
-            session_state.get('workflow_state')
-        )
+        # Initialize or update workflow state
+        if 'workflow_state' not in session_state or session_state['workflow_state'] is None:
+            # ✅ Initialize state - start with classification (skip greeting)
+            initial_state = {
+                "user_input": user_input,
+                "assistant_response": None,
+                "last_assistant_response": "",
+                "required_user_input": False,
+                "required_response": False,
+                "agent_message": "",
+                "customer_id": session_state.get("customer_id", ""),
+                "customer_data": session_state.get("customer_data", None),
+                "tool_group": "",
+                "operation_in_progress": False,
+                "available_tools": [],
+                "selected_tool": "",
+                "tool_params": {},
+                "missing_params": [],
+                "important_data": {},
+                "current_process": "classify",  # ✅ Start with classification
+                "in_process": "",
+                "chat_summary": session_state.get("chat_summary", ""),
+                "chat_history": session_state.get("chat_history", []),
+                "error": "",
+                "json_output": {},
+                "last_mcp_output": {},
+                "current_tool": "",
+                "current_category": "",
+                "operation_complete": False,
+                "operation_status": "",
+                "agent_instance": None,
+                "subscription_agent": session_state.get("subscription_agent", None),
+                "billing_agent": session_state.get("billing_agent", None),
+                "technical_agent": session_state.get("technical_agent", None),
+                "final_assistant_response": ""
+            }
+            session_state['workflow_state'] = initial_state
+        else:
+            # ✅ Continue with existing state
+            session_state['workflow_state']["user_input"] = user_input
+            session_state['workflow_state']["current_process"] = "classify"
+            # Reset response fields
+            session_state['workflow_state']["assistant_response"] = None
+            session_state['workflow_state']["final_assistant_response"] = ""
+            
+            # ✅ Preserve agent instances from session state
+            session_state['workflow_state']["subscription_agent"] = session_state.get("subscription_agent")
+            session_state['workflow_state']["billing_agent"] = session_state.get("billing_agent")
+            session_state['workflow_state']["technical_agent"] = session_state.get("technical_agent")
         
-        # Update session state
-        session_state['workflow_state'] = updated_state
-        session_state["chat_summary"] = updated_state.get("chat_summary", "")
-        session_state["chat_history"] = updated_state.get("chat_history", [])
-        session_state["customer_id"] = updated_state.get("customer_id", "")
-        session_state["customer_data"] = updated_state.get("customer_data", None)
+        # ✅ Run the workflow using the compiled graph (not StateGraph)
+        config = {
+            "recursion_limit": 50,
+            "max_execution_time": 120,
+        }
         
-        return response
+        print(f"🚀 STREAMLIT: Starting workflow with input: '{user_input}'")
+        
+        # ✅ Use the compiled graph directly - start from classify node
+        workflow_state = session_state['workflow_state']
+        
+        # Since we're skipping greeting, we need to manually route to classify
+        from nodes.enhanced_classifier import classify_user_request
+        
+        # Step 1: Classify the user request
+        classified_state = await classify_user_request(workflow_state)
+        
+        # Step 2: Route based on classification
+        from workflow import route_by_tool_classifier
+        next_step = route_by_tool_classifier(classified_state)
+        
+        if next_step == "simplified_executor":
+            # Step 3: Execute through simplified executor
+            from nodes.safe_executor import simplified_executor
+            executed_state = await simplified_executor(classified_state)
+            
+            # Step 4: Format the response
+            final_state = await streamlit_direct_response(executed_state)
+            
+        elif next_step == "direct_response":
+            # Direct response from classifier
+            final_state = await streamlit_direct_response(classified_state)
+            
+        elif next_step == "end":
+            # End session
+            final_state = classified_state
+            final_state["final_assistant_response"] = "Görüşmemiz sona erdi. İyi günler!"
+            
+        else:
+            # Fallback
+            final_state = classified_state
+            final_state["final_assistant_response"] = "Size nasıl yardımcı olabilirim?"
+        
+        # ✅ Update session state with results
+        session_state['workflow_state'] = final_state
+        session_state["chat_summary"] = final_state.get("chat_summary", "")
+        session_state["chat_history"] = final_state.get("chat_history", [])
+        session_state["customer_id"] = final_state.get("customer_id", "")
+        session_state["customer_data"] = final_state.get("customer_data", None)
+        
+        # ✅ Preserve agent instances
+        session_state["subscription_agent"] = final_state.get("subscription_agent")
+        session_state["billing_agent"] = final_state.get("billing_agent")
+        session_state["technical_agent"] = final_state.get("technical_agent")
+        
+        # ✅ Extract the final assistant response
+        assistant_response = (final_state.get("final_assistant_response") or 
+                            final_state.get("assistant_response") or "")
+        
+        if not assistant_response:
+            json_output = final_state.get("json_output", {})
+            assistant_response = (json_output.get("response", "") or 
+                                json_output.get("response_message", "") or
+                                json_output.get("message", ""))
+        
+        if not assistant_response:
+            assistant_response = "Üzgünüm, bir hata oluştu."
+        
+        print(f"🚀 STREAMLIT: Workflow completed, response: '{assistant_response[:100]}...'")
+        
+        return assistant_response
         
     except Exception as e:
-        print(f"Streamlit workflow error: {e}")
+        print(f"❌ STREAMLIT: Workflow error: {e}")
+        import traceback
+        traceback.print_exc()
         return "Üzgünüm, şu anda sistem müsait değil. Lütfen daha sonra tekrar deneyin."
-    
+
 # Helper function to run async functions in streamlit
 def run_async(coro):
     """Run async function in streamlit"""
