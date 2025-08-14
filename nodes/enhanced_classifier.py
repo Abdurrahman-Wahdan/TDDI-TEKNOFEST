@@ -108,7 +108,7 @@ system_prompt = f"""
         "reason" : "JSON oluştururken verdiğin kararları kısaca özetle"
         "category": "Kesinlikle bir kategori seç",
         "required_user_input": True | False,  # İşlem bitmediyse input bekleme
-        "response": "none, end_session_validation, end_session kategorilerini kullanılıyorsa cevap yaz | Diğer tüm kategoriler için None",
+        "response": "none" | "end_session_validation" | "end_session" kategorilerini kullanılıyorsa cevap yaz | Diğer tüm kategoriler için None",
         "agent_message": "Bir sonraki agent'a mesajın. Ne yapıldı ne yapması gerek",
         }}
         """.strip()

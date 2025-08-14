@@ -214,11 +214,12 @@ async def execute_operation(state: WorkflowState) -> WorkflowState:
         - Sohbet özetini (chat summary) dikkate al ve mevcut bağlama bağlı kal.
         - Sadece kullanıcıya doğrudan cevap verilmesi gerektiğinde "response_message" alanını doldur, aksi hâlde "None" yap.
         - Aynı mesajı gereksiz yere tekrar etme, konuşmayı sürdürmeye çalış.
+        - response_message oluştururken mesaj özetlerine bak ve aynı mesajı yazma.
 
         Çıktı formatı:
         {{
             "selected_tool": "tool_name | None | back_to_previous_agent",  # authenticate_customer öncelikli
-            "response_message": "Profesyonel mesaj (daha önce yazmadıysan) veya None",  # Gerek yoksa "None"
+            "response_message": "Profesyonel mesaj (daha önce yazmadıysan)" | None,  # Gerek yoksa "None"
             "required_user_input": True | False  # Cevap bekleniyorsa True
             "agent_message": "Bir sonraki agent'a mesajın. Ne yapıldı ve onun ne yapması gerek",
         }}
@@ -249,7 +250,7 @@ async def execute_operation(state: WorkflowState) -> WorkflowState:
         response = await call_gemma(
             prompt=context,
             system_message=system_message,
-            temperature=0.1  # Lower temperature for more precise parameter generation
+            temperature=0.5  # Lower temperature for more precise parameter generation
         )
         
         decision = extract_json_from_response(response)
@@ -294,24 +295,26 @@ async def tool_agent(state: WorkflowState) -> WorkflowState:
         Müşteri numarası: {customer_id}
 
         Talimatlar:
-        1. Aktif tool için eksik parametreleri belirle ve tamamla, ardından tool'u çalıştır.
+        1. Aktif tool için eksik parametreleri belirle ve tamamlamaya çalış continue ile, ardından tool'u çalıştır.
         2. "back_to_previous_agent" yalnızca şu durumlarda seçilir:
         - Parametreler doldurulamıyorsa,
-        - Farklı bir tool ihtiyacı varsa,
+        - Diğer tool'lara ihtiyaç varsa,
         - Aktif tool işlemi tamamlandıysa.
         3. Eğer işlemden yeni dönüldüyse ve gerekli bilgiler müşteriye verilmediyse, bilgileri sun (ama tool adını doğrudan verme).
-        4. Bilgiler verildiyse "back_to_previous_agent" seç ve müşteriyi güncelle.
-        5. "back_to_previous_agent" seçildiğinde `response_message` boş olmalı.
         6. Sohbet geçmişi boş değilse karşılamalar ("Merhaba" vb.) yapma.
-        7. "execute_tool" → Sadece yönlendirme yapılır, işlem yapılmaz; bu durumda bilgi verme.
-        8. Sohbet özeti ve bağlama sadık kal, sadece verilen bilgilere göre yanıt üret.
+        - "execute_tool" → yalnızca tüm parametreler alındığında çağrılır ancak.
+        - Konuşmayı sürdürmeye çalış.
+        - continue seçerek konuşmayı sürdürebilirsin.
+        - Tüm parametreler elinde değilse kesinlikle execute_tool yapma, gerekirse önceki agent'a git.
+        - response_message oluştururken mesaj özetlerine bak ve aynı mesajı yazma.
+        - response_message oluştururken kesinlikle sana verdiğim bağlamı kullan, uydurma!
 
         Yanıt formatı:
         {{
-            "phase": "collect_missing_parameters | execute_tool | back_to_previous_agent",  # Sadece bu üç değer
+            "phase": "continue" | "execute_tool" | "back_to_previous_agent",  # Sadece bu değerler
             "missing_parameters": ["param1", "param2"] or None,  # Eksik parametre yoksa None
             "known_parameters": {{"param1": "value", "param2": "value2"}},  # Temin edilmiş parametreler
-            "response_message": "Profesyonel mesaj (daha önce yazmadıysan) veya None",  # Gereksiz tekrar yok
+            "response_message": None (Python bool) | "Profesyonel mesaj (daha önce yazmadıysan)",  # Gereksiz tekrar yok
             "required_user_input": True | False  # Yanıt bekleniyorsa True,
             "agent_message": "Bir sonraki agent'a mesajın. Ne yapıldı ve onun ne yapması gerek",
         }}
@@ -343,9 +346,10 @@ async def tool_agent(state: WorkflowState) -> WorkflowState:
         response = await call_gemma(
             prompt=context,
             system_message=system_message,
-            temperature=0.1  # Lower temperature for more precise parameter generation
+            temperature=0.5  # Lower temperature for more precise parameter generation
         )
         
+        print(response)
         decision = extract_json_from_response(response)
 
         state["json_output"] = decision
