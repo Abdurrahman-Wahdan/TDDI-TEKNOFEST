@@ -116,7 +116,7 @@ This system is built entirely with **open-source technologies**:
   - **SFP8 (8-bit)**: ~29.1 GB  
   - **Q4_0 (4-bit)**: ~21 GB  
 
-> [!NOTE]
+> [!WARNING]
 > VRAM requirements listed above are for model loading only. Running with large context windows (e.g., 128K tokens) will require significantly more memory.
 
 ## 🛠️ Installation
