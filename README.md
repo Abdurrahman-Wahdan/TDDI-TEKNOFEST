@@ -1,3 +1,4 @@
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 # Kermits - TDDI 2025 - Customer Service AI Agent
 
 A sophisticated AI-powered customer service system built entirely with **open-source technologies**. Provides intelligent routing, automated responses, and seamless integration with MCP services using LangGraph workflows and GEMMA 3 LLM.
