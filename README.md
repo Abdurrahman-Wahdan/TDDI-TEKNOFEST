@@ -217,14 +217,14 @@ docker run --name tddi-postgres \
 
 1. **Open pgAdmin** and connect to your PostgreSQL server
 2. **Create Database**: Right-click on "Databases" → "Create" → "Database"
-   - Database name: `turkcell_db`
+   - Database name: `tddi`
    - Owner: `postgres`
-3. **Restore Database**: Right-click on `turkcell_db` → "Restore"
+3. **Restore Database**: Right-click on `tddi` → "Restore"
    - Format: `Custom or tar`
-   - Filename: Browse and select `database/turkcell_backup.backup` (included in project)
+   - Filename: Browse and select `database/tddi.backup` (included in project)
    - Click "Restore"
 
-**📁 Database File**: The complete database backup `turkcell_backup.backup` is included in the `database/` folder and contains:
+**📁 Database File**: The complete database backup `tddi.backup` is included in the `database/` folder and contains:
 - Customer data tables
 - Subscription and billing information  
 - Technical support records
