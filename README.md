@@ -55,6 +55,8 @@ The system features **two distinct workflow patterns**:
 - Better for complex multi-step operations
 
 <p class="callout info">Main Flow</p>
+> [!NOTE]
+> Hybrid Workflow is the Main Flow
 
 ## 🚀 Key Features
 
