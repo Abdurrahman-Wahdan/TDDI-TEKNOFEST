@@ -1,7 +1,5 @@
 # Kermits - TDDI 2025 - Customer Service AI Agent
 
-![TDDI Architecture](assets/tddi-architecture.png)
-
 A sophisticated AI-powered customer service system built entirely with **open-source technologies**. Provides intelligent routing, automated responses, and seamless integration with MCP services using LangGraph workflows and GEMMA 3 LLM.
 
 ## 📋 Table of Contents
@@ -39,7 +37,7 @@ A sophisticated AI-powered customer service system built entirely with **open-so
 
 ## 🏗️ Architecture Overview
 
-![Workflow Architecture](assets/workflow-diagram.png)
+![TDDI Architecture](assets/tddi-architecture.png)
 
 The system features **two distinct workflow patterns**:
 
@@ -67,11 +65,10 @@ The system features **two distinct workflow patterns**:
 - **Comprehensive Database**: PostgreSQL with full customer service data model
 - **Real-time Embeddings**: Qdrant vector database for semantic search and vector storage running locally
 
-<p class="callout warning">Technical and Registration modules are MCP Server Ready but not integrated yet</p>
+> [!NOTE]
+> Technical and Registration modules are MCP Server Ready but not integrated yet
 
 ## 🌟 Open Source Technology Stack
-
-![Technology Stack](assets/tech-stack.png)
 
 This system is built entirely with **open-source technologies**:
 
@@ -119,7 +116,8 @@ This system is built entirely with **open-source technologies**:
   - **SFP8 (8-bit)**: ~29.1 GB  
   - **Q4_0 (4-bit)**: ~21 GB  
 
-<p class="callout info">VRAM requirements listed above are for model loading only. Running with large context windows (e.g., 128K tokens) will require significantly more memory.</p>
+> [!NOTE]
+> VRAM requirements listed above are for model loading only. Running with large context windows (e.g., 128K tokens) will require significantly more memory.
 
 ## 🛠️ Installation
 
@@ -189,7 +187,8 @@ DEBUG=True
 LOG_LEVEL=INFO
 ```
 
-<p class="callout success">On macOS/Linux, always use `python3` and `pip3` to avoid conflicts with system Python. On Windows, use `python` and `pip` if your environment variables are set correctly.</p>
+> [!NOTE]
+> On macOS/Linux, always use `python3` and `pip3` to avoid conflicts with system Python. On Windows, use `python` and `pip` if your environment variables are set correctly.
 
 ## 🗄️ Database Setup
 
@@ -300,23 +299,32 @@ streamlit run ui.py
 ### Subscription Management
 ```
 User: "Hangi paketlerim aktif?"
+
 System: Bu işlem için TC kimlik numaranızı paylaşabilir misiniz?
+
 User: "12345678901"
+
 System: Ahmet Yılmaz Aktif paketleriniz:
 - SuperOnline Fiber 100: 199₺/ay - 100GB quota
 - BiP Premium: 29₺/ay - Sınırsız mesaj
     Başka nasıl yardımcı olabilirim?
+
 User: "Daha ucuz bir pakete geçmek istiyorum"
+
 System: Mevcut paketlerimiz arasından size uygun seçenekleri göstereyim:
     Fiber Paketler:
     - SuperOnline Fiber 50: 149₺/ay - 50GB
     - SuperOnline Fiber 25: 99₺/ay - 25GB
     
 Hangi pakete geçmek istersiniz?
+
 User: "Fiber 50 paketine geçelim"
+
 System: SuperOnline Fiber 100'den SuperOnline Fiber 50'ye geçişinizi
 onaylıyor musunuz? Aylık 50₺ tasarruf sağlayacaksınız.
+
 User: "Evet onaylıyorum"
+
 System: ✅ Paket değişikliğiniz başarıyla gerçekleştirildi!
 Yeni paketiniz yarın itibariyle aktif olacak.
 ```
@@ -324,9 +332,12 @@ Yeni paketiniz yarın itibariyle aktif olacak.
 ### Billing Management Example
 ```
 User: "Ödenmemiş faturalarım var mı?"
+
 System: TC kimlik numaranızla giriş yapmanız gerekiyor.
 Paylaşabilir misiniz?
+
 User: "98765432109"
+
 System: Hoş geldiniz Ayşe Demir!
 2 adet ödenmemiş faturanız bulunuyor:
     - Ocak 2024 Faturası: 156₺ (Vade tarihi: 15 Şubat)
@@ -336,10 +347,14 @@ System: Hoş geldiniz Ayşe Demir!
     
     Ödeme için *532*# çevirebilir veya Online İşlemler 
     uygulamasını kullanabilirsiniz.
+
 User: "Ocak faturasında hata var, çok yüksek gelmiş"
+
 System: Fatura tutarına itiraz kaydı oluşturacağım.
 İtiraz nedeninizi açıklar mısınız?
+
 User: "Normalde 100₺ civarında ödüyorum, bu ay 156₺ çok yüksek"
+
 System: İtirazınız başarıyla kaydedildi.
 Takip numarası: ITR-2024-001234
     48 saat içinde faturanız incelenecek ve size 
@@ -438,6 +453,3 @@ The system provides 16 core operations across 5 categories:
 2. Abdelrahman Wahdan
 3. Semih Burak Atılgan
 4. Mehmet Gündoğdu
-
----
->>>>>>> abdurrahman
