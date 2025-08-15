@@ -222,10 +222,10 @@ docker run --name tddi-postgres \
    - Owner: `postgres`
 3. **Restore Database**: Right-click on `tddi` → "Restore"
    - Format: `Custom or tar`
-   - Filename: Browse and select `database/tddi.backup` (included in project)
+   - Filename: Browse and select `database/tddi_db.backup` (included in project)
    - Click "Restore"
 
-**📁 Database File**: The complete database backup `tddi.backup` is included in the `database/` folder and contains:
+**📁 Database File**: The complete database backup `tddi_db.backup` is included in the `database/` folder and contains:
 - Customer data tables
 - Subscription and billing information  
 - Technical support records
