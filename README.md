@@ -54,7 +54,6 @@ The system features **two distinct workflow patterns**:
 - Structured tool usage with deterministic execution
 - Better for complex multi-step operations
 
-<p class="callout info">Main Flow</p>
 > [!NOTE]
 > Hybrid Workflow is the Main Flow
 
